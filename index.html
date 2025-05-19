@@ -10,32 +10,32 @@
     <header>
         <nav>
             <ul>
-                <li><a href="#home">Home</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
+                <li><a href="#home" onclick="event.preventDefault(); document.getElementById('home').scrollIntoView({behavior: 'smooth'});">Home</a></li>
+                <li><a href="#about" onclick="event.preventDefault(); document.getElementById('about').scrollIntoView({behavior: 'smooth'});">About</a></li>
+                <li><a href="#contact" onclick="event.preventDefault(); document.getElementById('contact').scrollIntoView({behavior: 'smooth'});">Contact</a></li>
             </ul>
         </nav>
     </header>
 
     <main>
-        <section id="home">
-            <h1>Welcome to Lloryn</h1>
-            <p>Discover the world of digital curation</p>
+        <section id="home" class="section">
+            <h1>Galatas Curation</h1>
+            <p><em>by LLoryn Galatas</em></p>
         </section>
 
-        <section id="about">
-            <h2>About Us</h2>
-            <p>We specialize in creating unique digital experiences and curating content that inspires.</p>
+        <section id="about" class="section">
+            <h2>About Lloryn</h2>
+            <p>LLoryn Galatas began her journey as a forensic pathologist in 2022.</p>
         </section>
 
-        <section id="contact">
-            <h2>Contact Us</h2>
-            <p>Get in touch to learn more about our services</p>
+        <section id="contact" class="section">
+            <h2>Contact Lloryn</h2>
+            <p>Submit your inquiries here.</p>
         </section>
     </main>
 
     <footer>
-        <p>&copy; 2024 Lloryn. All rights reserved.</p>
+        <p>&copy; 2025 Lloryn Galatas. All rights reserved.</p>
     </footer>
 </body>
 </html> 
