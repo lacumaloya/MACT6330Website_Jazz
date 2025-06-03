@@ -19,12 +19,47 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }
 
-function draw() {
-  clear();
-  drawArrowheadCursor(mouseX, mouseY, 15);
+// --- Add global variables for click animation ---
+let cursorScale = 1;
+let clickAnimating = false;
+let clickStartTime = 0;
+const CLICK_ANIMATION_DURATION = 120; // ms
+
+// --- Phantom trail variables ---
+let cursorTrail = [];
+const TRAIL_LENGTH = 12;
+
+function mousePressed() {
+  clickAnimating = true;
+  clickStartTime = millis();
 }
 
-function drawArrowheadCursor(x, y, size) {
+function draw() {
+  clear();
+  // --- Update click animation state ---
+  if (clickAnimating) {
+    let elapsed = millis() - clickStartTime;
+    if (elapsed < CLICK_ANIMATION_DURATION) {
+      let t = elapsed / CLICK_ANIMATION_DURATION;
+      cursorScale = 1 - 0.3 * sin(PI * t);
+    } else {
+      cursorScale = 1;
+      clickAnimating = false;
+    }
+  }
+  // --- Update cursor trail ---
+  cursorTrail.push({x: mouseX, y: mouseY});
+  if (cursorTrail.length > TRAIL_LENGTH) cursorTrail.shift();
+  // --- Draw phantom trail ---
+  for (let i = 0; i < cursorTrail.length - 1; i++) {
+    let alpha = map(i, 0, cursorTrail.length - 1, 30, 120); // Faded
+    drawArrowheadCursor(cursorTrail[i].x, cursorTrail[i].y, 15, alpha / 255);
+  }
+  // --- Draw main cursor ---
+  drawArrowheadCursor(mouseX, mouseY, 15, 1);
+}
+
+function drawArrowheadCursor(x, y, size, alpha = 1) {
   push();
   // Define pts first so it can be used for transformation
   const pts = [
@@ -56,26 +91,37 @@ function drawArrowheadCursor(x, y, size) {
   translate(x - tx, y - ty);
   rotate(angle);
   scale(-1, 1);
+  // --- Apply click animation scale ---
+  scale(cursorScale);
 
   // --- SOFT SHADOW ---
   noStroke();
-  for (let i = 10; i > 0; i--) {
-    fill(80, 75, 90, 8); // very soft, layered shadow
+  for (let i = 6; i > 0; i--) {
+    fill(80, 75, 90, 3 * alpha); // slightly denser shadow
     beginShape();
     for (let p of pts) vertex(p.x + 8 + i, p.y + 10 + i);
     endShape(CLOSE);
   }
 
   // --- TWO-TONE OUTLINE ---
-  stroke(255, 230, 255, 80); // light outer
-  strokeWeight(7);
+  if (alpha < 1) {
+    stroke(255, 230, 255, 40 * alpha); // lighter outer
+    strokeWeight(3);
+  } else {
+    stroke(255, 230, 255, 80 * alpha); // normal outer
+    strokeWeight(7);
+  }
   fill(0,0,0,0);
   beginShape();
   for (let p of pts) vertex(p.x, p.y);
   endShape(CLOSE);
-
-  stroke(35, 25, 45); // dark inner
-  strokeWeight(3.5);
+  if (alpha < 1) {
+    stroke(35, 25, 45, 120 * alpha); // lighter inner
+    strokeWeight(1.5);
+  } else {
+    stroke(35, 25, 45, 255 * alpha); // normal inner
+    strokeWeight(3.5);
+  }
   fill(0,0,0,0);
   beginShape();
   for (let p of pts) vertex(p.x, p.y);
@@ -90,15 +136,17 @@ function drawArrowheadCursor(x, y, size) {
   grad.addColorStop(1, '#4b2744'); // deep merlot
   ctx.save();
   ctx.clip();
+  ctx.globalAlpha = alpha;
   ctx.fillStyle = grad;
   beginShape();
   for (let p of pts) vertex(p.x, p.y);
   endShape(CLOSE);
+  ctx.globalAlpha = 1;
   ctx.restore();
 
   // --- PRONOUNCED FACETS ---
   noStroke();
-  fill(200, 200, 255, 180); // facet 1
+  fill(200, 200, 255, 180 * alpha); // facet 1
   beginShape();
   vertex(size * 0.3, size * 0.6);
   vertex(size * 0.7, size * 0.9);
@@ -107,7 +155,7 @@ function drawArrowheadCursor(x, y, size) {
   vertex(size * 0.7, size * 0.6);
   endShape(CLOSE);
 
-  fill(180, 180, 220, 180); // facet 2
+  fill(180, 180, 220, 180 * alpha); // facet 2
   beginShape();
   vertex(size * 0.7, size * 0.6);
   vertex(size * 1.0, size * 0.7);
@@ -116,7 +164,7 @@ function drawArrowheadCursor(x, y, size) {
   vertex(size * 1.0, size * 0.4);
   endShape(CLOSE);
 
-  fill(220, 220, 255, 160); // facet 3
+  fill(220, 220, 255, 160 * alpha); // facet 3
   beginShape();
   vertex(size * 1.3, size * 0.45);
   vertex(size * 1.7, size * 0.85);
@@ -125,7 +173,7 @@ function drawArrowheadCursor(x, y, size) {
   vertex(size * 1.3, size * 0.35);
   endShape(CLOSE);
 
-  fill(240, 240, 255, 120); // facet 4
+  fill(240, 240, 255, 120 * alpha); // facet 4
   beginShape();
   vertex(size * 1.7, size * 0.3);
   vertex(size * 2.1, size * 0.55);
@@ -135,7 +183,7 @@ function drawArrowheadCursor(x, y, size) {
   endShape(CLOSE);
 
   // --- CRACKS/DETAILS ---
-  stroke(180);
+  stroke(180, 255 * alpha);
   strokeWeight(1.2);
   line(size * 2.7, size * 0.18, size * 1.1, size * 1.1);
   line(size * 2.5, size * 0.32, size * 1.0, size * 0.7);
