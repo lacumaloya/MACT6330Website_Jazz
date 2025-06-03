@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css?family=Playfair+Display:700,900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Lato:400,700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+    <!-- <script src="skeletonHeader.js"></script> -->
 </head>
 <body>
     <nav id="site-navbar">
@@ -15,11 +17,14 @@
         <a href="#contact">Contact</a>
         <a href="portfolio.html">Portfolio</a>
     </nav>
-    <header>
-        <div class="header-box">
-            <h1>Galatas Curation</h1>
-            <p class="subtitle">by LLoryn Galatas</p>
+    <header style="position: relative;">
+        <div class="header-content">
+            <div class="header-box">
+                <h1>Galatas Curation</h1>
+                <p class="subtitle">by LLoryn Galatas</p>
+            </div>
         </div>
+        <!-- <div id="skeleton-canvas-holder"></div> -->
     </header>
     <main>
         <section class="hero-section">
@@ -43,11 +48,13 @@
             <a href="portfolio.html" class="portfolio-link">View Portfolio</a>
                 </div>
     </main>
+    <div id="p5-animation-holder" style="width:100%;display:flex;justify-content:center;margin:2rem 0;"></div>
     <footer>
         <div class="footer-links">
             <span>LI</span> <span>IG</span> <span>FB</span> <span>GH</span>
         </div>
         <div class="footer-copy">Lloryn Galatas tm2025</div>
     </footer>
+    <script src="arrowheadCursor.js"></script>
 </body>
 </html> 

@@ -309,4 +309,39 @@ footer {
 }
 
 /* Remove old nav styles */
-.main-nav, .nav-btn { display: none !important; } 
+.main-nav, .nav-btn { display: none !important; }
+
+.header-flex {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2rem;
+}
+
+#skeleton-canvas-holder {
+    position: absolute;
+    top: 50%;
+    right: 24px;
+    transform: translateY(-50%);
+    width: 180px;
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none; /* Animation is not interactive */
+    z-index: 10;
+}
+
+.header-content {
+    /* Ensures header text stays left and is not affected by the animation */
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    #skeleton-canvas-holder {
+        width: 120px;
+        height: 120px;
+        right: 8px;
+    }
+} 
