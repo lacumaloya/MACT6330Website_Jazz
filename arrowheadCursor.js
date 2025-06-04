@@ -196,8 +196,5 @@ function drawArrowheadCursor(x, y, size, alpha = 1) {
   line(size * 1.7, size * -0.04, size * 2.0, size * 0.08);
   line(size * 2.0, size * 0.08, size * 2.3, size * 0.12);
 
-  // --- PLACEHOLDER FOR CLICK ANIMATION ---
-  // (In the future, animate scale, color, or a flash on mousePressed)
-
   pop();
 } 
