@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galatas Curation</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css?family=Playfair+Display:700,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Lato:400,700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+    <!-- <script src="skeletonHeader.js"></script> -->
+</head>
+<body>
+    <nav id="site-navbar">
+        <a href="index.html">Home</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+        <a href="portfolio.html">Portfolio</a>
+        </nav>
+    <header style="position: relative;">
+        <div class="header-content">
+            <div class="header-box">
+            <h1>Galatas Curation</h1>
+                <p class="subtitle">by LLoryn Galatas</p>
+            </div>
+        </div>
+        <!-- <div id="skeleton-canvas-holder"></div> -->
+    </header>
+    <main>
+        <section class="hero-section" style="position:relative;overflow:hidden;">
+            <canvas id="fingerprint-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;"></canvas>
+            <div class="hero-title" style="position:relative;z-index:1;">Title (Hero Section)</div>
+        </section>
+        <section class="featured-work">
+            <div class="featured-text">
+                <strong>Featured work:</strong> Lorem ipsum dolor sit amet et delectus accommodare his consul copiosae legendos at vix ad putent.
+                <br>
+                <a href="feature.html" class="portfolio-link" style="display:inline-block;margin-top:1rem;">Please Read</a>
+            </div>
+            <img src="images/WOMEN_AESTHETIC_POWER.png" alt="Featured Work" class="featured-img">
+        </section>
+        <section class="introduction">
+            <img src="images/LLORYN_HEADSHOT.jpg" alt="Lloryn Headshot" class="intro-img">
+            <div class="intro-text">
+                Introduce yourself, expertise, and tenure.
+                </div>
+        </section>
+        <div class="portfolio-link-container">
+            <a href="portfolio.html" class="portfolio-link">View Portfolio</a>
+                </div>
+    </main>
+    <div id="p5-animation-holder" style="width:100%;display:flex;justify-content:center;margin:2rem 0;"></div>
+    <footer>
+        <div class="footer-links">
+            <span>LI</span> <span>IG</span> <span>FB</span> <span>GH</span>
+        </div>
+        <div class="footer-copy">Lloryn Galatas tm2025</div>
+    </footer>
+    <script src="arrowheadCursor.js"></script>
+    <script src="digitalFingerprint.js"></script>
+</body>
+</html> 
