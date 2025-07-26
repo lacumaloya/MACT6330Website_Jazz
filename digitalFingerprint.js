@@ -160,13 +160,13 @@
   class DoubleLoop extends DigitalFingerprint {
     generate() {
       this.ridgePaths = [];
-      
-      // Generate ridges around the double loop spine
-      for (let r = 0; r < this.ridges; r++) {
-        let ridgeOffset = (r - this.ridges / 2) * 6; // Spacing between ridges
-        this.ridgePaths.push(this.generatePath(r, ridgeOffset));
-      }
+    
+    // Generate multiple parallel ridges that follow the same S-curve spine
+    for (let r = 0; r < this.ridges; r++) {
+      let ridgeOffset = (r - this.ridges / 2) * 4; // Tighter spacing for more ridges
+      this.ridgePaths.push(this.generatePath(r, ridgeOffset));
     }
+  }
     
     draw(dotsDrawn, dotsPerFrame) {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -179,18 +179,18 @@
           lerpColor(blue, purple, r / (this.ridges / 2)) : 
           lerpColor(purple, pink, (r - this.ridges / 2) / (this.ridges / 2));
         
-        for (let i = 0; i < maxDots && i < path.length; i++) {
-          let pt = path[i];
-          let fade = 1.0;
-          if (pt.t > 0.85) fade = Math.max(0, 1.0 - (pt.t - 0.85) * 4.5);
-          this.ctx.save();
-          this.ctx.globalAlpha = 0.85 * fade;
-          this.ctx.fillStyle = ridgeColor;
-          this.ctx.beginPath();
-          this.ctx.arc(pt.x, pt.y, 2.1 + 1.2 * Math.sin(r + i * 0.13), 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.restore();
-        }
+                  for (let i = 0; i < maxDots && i < path.length; i++) {
+            let pt = path[i];
+            let fade = 1.0;
+            if (pt.t > 0.85) fade = Math.max(0, 1.0 - (pt.t - 0.85) * 4.5);
+            this.ctx.save();
+            this.ctx.globalAlpha = 0.85 * fade;
+            this.ctx.fillStyle = ridgeColor;
+            this.ctx.beginPath();
+            this.ctx.arc(pt.x, pt.y, 2.1 + 1.2 * Math.sin(r + i * 0.13), 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.restore();
+          }
         if (maxDots < path.length) {
           dotsDrawn[r] = maxDots + dotsPerFrame;
         }
@@ -200,8 +200,8 @@
     generatePath(r, ridgeOffset) {
       let path = [];
       let points = this.pointsPerRidge;
-      let loopWidth = this.maxR * 1.2;
-      let loopHeight = this.maxR * 1.0;
+      let loopWidth = this.maxR * 1.25;
+      let loopHeight = this.maxR * 1.05;
       
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
@@ -216,9 +216,9 @@
           // Use even smoother curve interpolation
           let smoothT = loopT * loopT * loopT * (10 - 15 * loopT + 6 * loopT * loopT); // Smootherstep function
           
-          // Start from left edge, curve inward and down with natural arc
+          // Balanced core structure - left core
           let startX = this.cx - loopWidth * 0.6;
-          let startY = this.cy + loopHeight * 0.4;
+          let startY = this.cy + loopHeight * 0.42;
           let endX = this.cx; // Meet in the center
           let endY = this.cy;
           
@@ -226,25 +226,37 @@
           x = startX + (endX - startX) * smoothT;
           y = startY + (endY - startY) * smoothT;
           
-          // Add smoother natural arc curvature
-          let arcCurve = Math.sin(loopT * Math.PI) * 0.3;
-          x += arcCurve * loopWidth * 0.12;
-          y += arcCurve * loopHeight * 0.08;
+          // Core flow enhancement - stronger curve near the core
+          let coreFlow = Math.sin(loopT * Math.PI) * 0.2;
+          x += coreFlow * loopWidth * 0.15;
+          y += coreFlow * loopHeight * 0.12;
           
-          // Gradually taper off the tail end
-          if (loopT < 0.2) {
-            let taperFactor = loopT / 0.2; // 0 to 1 for tapering
-            let taperCurve = Math.sin(taperFactor * Math.PI / 2); // Smooth tapering
-            x += taperCurve * loopWidth * 0.05;
-            y += taperCurve * loopHeight * 0.04;
-          }
+          // Micro-curves within the arches for detail
+          let microCurve = Math.sin(loopT * Math.PI * 3) * 0.08;
+          x += microCurve * loopWidth * 0.1;
+          y += microCurve * loopHeight * 0.08;
           
-          // Strengthened S-curve wrapping around the center
+          // Remove arc curvature to eliminate fish tail effect
+          
+          // Natural edge termination - no fish tail
+          // Let the ridges naturally end without position adjustments
+          
+          // Enhanced S-curve with layered ridge stacking
           if (loopT > 0.3 && loopT < 0.9) {
             let sCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6) * 0.8;
-            // Add more pronounced S-curve movement for stronger S-line
+            // Primary S-curve movement
             x += sCurve * loopWidth * 0.45;
             y += sCurve * loopHeight * 0.4;
+            
+            // Secondary echo curve for ridge layering
+            let echoCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6 + Math.PI * 0.3) * 0.4;
+            x += echoCurve * loopWidth * 0.2;
+            y += echoCurve * loopHeight * 0.15;
+            
+            // Minimal ridge variation for cleaner parallelism
+            let ridgeVariation = Math.sin(r * 0.2 + loopT * Math.PI * 1.0) * 0.03;
+            x += ridgeVariation * loopWidth * 0.05;
+            y += ridgeVariation * loopHeight * 0.04;
           }
         } else {
           // Right loop system - curves inward from right side with natural flow
@@ -253,9 +265,9 @@
           // Use even smoother curve interpolation
           let smoothT = loopT * loopT * loopT * (10 - 15 * loopT + 6 * loopT * loopT); // Smootherstep function
           
-          // Start from right edge, curve inward and up with natural arc
+          // Balanced core structure - right core
           let startX = this.cx + loopWidth * 0.6;
-          let startY = this.cy - loopHeight * 0.4;
+          let startY = this.cy - loopHeight * 0.42;
           let endX = this.cx; // Meet in the center
           let endY = this.cy;
           
@@ -263,30 +275,42 @@
           x = startX + (endX - startX) * smoothT;
           y = startY + (endY - startY) * smoothT;
           
-          // Add smoother natural arc curvature
-          let arcCurve = Math.sin(loopT * Math.PI) * 0.3;
-          x -= arcCurve * loopWidth * 0.12;
-          y -= arcCurve * loopHeight * 0.08;
+          // Core flow enhancement - stronger curve near the core
+          let coreFlow = Math.sin(loopT * Math.PI) * 0.2;
+          x -= coreFlow * loopWidth * 0.15;
+          y -= coreFlow * loopHeight * 0.12;
           
-          // Gradually taper off the tail end
-          if (loopT < 0.2) {
-            let taperFactor = loopT / 0.2; // 0 to 1 for tapering
-            let taperCurve = Math.sin(taperFactor * Math.PI / 2); // Smooth tapering
-            x -= taperCurve * loopWidth * 0.05;
-            y -= taperCurve * loopHeight * 0.04;
-          }
+          // Micro-curves within the arches for detail
+          let microCurve = Math.sin(loopT * Math.PI * 3) * 0.08;
+          x -= microCurve * loopWidth * 0.1;
+          y -= microCurve * loopHeight * 0.08;
           
-          // Strengthened S-curve wrapping around the center
+          // Remove arc curvature to eliminate fish tail effect
+          
+          // Natural edge termination - no fish tail
+          // Let the ridges naturally end without position adjustments
+          
+          // Enhanced S-curve with layered ridge stacking
           if (loopT > 0.3 && loopT < 0.9) {
             let sCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6) * 0.8;
-            // Add more pronounced S-curve movement for stronger S-line
+            // Primary S-curve movement
             x -= sCurve * loopWidth * 0.45;
             y -= sCurve * loopHeight * 0.4;
+            
+            // Secondary echo curve for ridge layering
+            let echoCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6 + Math.PI * 0.3) * 0.4;
+            x -= echoCurve * loopWidth * 0.2;
+            y -= echoCurve * loopHeight * 0.15;
+            
+            // Minimal ridge variation for cleaner parallelism
+            let ridgeVariation = Math.sin(r * 0.2 + loopT * Math.PI * 1.0) * 0.03;
+            x -= ridgeVariation * loopWidth * 0.05;
+            y -= ridgeVariation * loopHeight * 0.04;
           }
         }
         
-        // Add ridge offset for parallel ridges - fine-tuned spacing
-        let ridgeSpacing = 7;
+        // Add ridge offset for parallel ridges - more distinct spacing
+        let ridgeSpacing = 6;
         let ridgeIndex = r - this.ridges / 2;
         x += ridgeIndex * ridgeSpacing * 0.8;
         y += ridgeIndex * ridgeSpacing * 0.6;
@@ -298,8 +322,8 @@
         x += flowX * loopWidth * 0.3;
         y += flowY * loopHeight * 0.25;
         
-        // Rotate the entire pattern to the left (counterclockwise)
-        let rotationAngle = -Math.PI / 2; // 90 degrees counterclockwise
+        // Rotate the entire pattern for better balance
+        let rotationAngle = -Math.PI / 2.2; // Slightly less than 90 degrees for better balance
         let centerX = this.cx;
         let centerY = this.cy;
         let rotatedX = centerX + (x - centerX) * Math.cos(rotationAngle) - (y - centerY) * Math.sin(rotationAngle);
@@ -326,7 +350,7 @@
     fingerprint = new types[currentType](canvas, ctx);
     // Set density for double loop
     if (fingerprint instanceof DoubleLoop) {
-      fingerprint.ridges = 20;
+      fingerprint.ridges = 15;
       fingerprint.pointsPerRidge = 120;
     } else if (fingerprint instanceof Loop) {
       fingerprint.ridges = 35; // Keep more layers
