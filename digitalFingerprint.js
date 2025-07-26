@@ -158,8 +158,8 @@
   }
 
   class DoubleLoop extends DigitalFingerprint {
-    generate() {
-      this.ridgePaths = [];
+      generate() {
+    this.ridgePaths = [];
     
     // Generate multiple parallel ridges that follow the same S-curve spine
     for (let r = 0; r < this.ridges; r++) {
@@ -200,8 +200,8 @@
     generatePath(r, ridgeOffset) {
       let path = [];
       let points = this.pointsPerRidge;
-      let loopWidth = this.maxR * 1.25;
-      let loopHeight = this.maxR * 1.05;
+              let loopWidth = this.maxR * 1.25;
+        let loopHeight = this.maxR * 1.05;
       
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
@@ -243,21 +243,23 @@
           
           // Enhanced S-curve with layered ridge stacking
           if (loopT > 0.3 && loopT < 0.9) {
-            let sCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6) * 0.8;
+            let sCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6) * 0.8; // Back to original strength
             // Primary S-curve movement
-            x += sCurve * loopWidth * 0.45;
+            x += sCurve * loopWidth * 0.45; // Back to original movement
             y += sCurve * loopHeight * 0.4;
             
             // Secondary echo curve for ridge layering
-            let echoCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6 + Math.PI * 0.3) * 0.4;
+            let echoCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6 + Math.PI * 0.3) * 0.4; // Back to original
             x += echoCurve * loopWidth * 0.2;
             y += echoCurve * loopHeight * 0.15;
             
-            // Minimal ridge variation for cleaner parallelism
-            let ridgeVariation = Math.sin(r * 0.2 + loopT * Math.PI * 1.0) * 0.03;
-            x += ridgeVariation * loopWidth * 0.05;
-            y += ridgeVariation * loopHeight * 0.04;
+            // Enhanced ridge variation for more hills
+            let ridgeVariation = Math.sin(r * 0.3 + loopT * Math.PI * 1.5) * 0.12; // More pronounced hills
+            x += ridgeVariation * loopWidth * 0.15;
+            y += ridgeVariation * loopHeight * 0.12;
           }
+          
+
         } else {
           // Right loop system - curves inward from right side with natural flow
           let loopT = (t - 0.5) * 2; // 0 to 1 for right loop
@@ -292,25 +294,27 @@
           
           // Enhanced S-curve with layered ridge stacking
           if (loopT > 0.3 && loopT < 0.9) {
-            let sCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6) * 0.8;
+            let sCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6) * 0.8; // Back to original strength
             // Primary S-curve movement
-            x -= sCurve * loopWidth * 0.45;
+            x -= sCurve * loopWidth * 0.45; // Back to original movement
             y -= sCurve * loopHeight * 0.4;
             
             // Secondary echo curve for ridge layering
-            let echoCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6 + Math.PI * 0.3) * 0.4;
+            let echoCurve = Math.sin((loopT - 0.3) * Math.PI / 0.6 + Math.PI * 0.3) * 0.4; // Back to original
             x -= echoCurve * loopWidth * 0.2;
             y -= echoCurve * loopHeight * 0.15;
             
-            // Minimal ridge variation for cleaner parallelism
-            let ridgeVariation = Math.sin(r * 0.2 + loopT * Math.PI * 1.0) * 0.03;
-            x -= ridgeVariation * loopWidth * 0.05;
-            y -= ridgeVariation * loopHeight * 0.04;
+            // Enhanced ridge variation for more hills
+            let ridgeVariation = Math.sin(r * 0.3 + loopT * Math.PI * 1.5) * 0.12; // More pronounced hills
+            x -= ridgeVariation * loopWidth * 0.15;
+            y -= ridgeVariation * loopHeight * 0.12;
           }
+          
+
         }
         
-        // Add ridge offset for parallel ridges - more distinct spacing
-        let ridgeSpacing = 6;
+        // Add ridge offset for parallel ridges - maximum spacing
+        let ridgeSpacing = 12;
         let ridgeIndex = r - this.ridges / 2;
         x += ridgeIndex * ridgeSpacing * 0.8;
         y += ridgeIndex * ridgeSpacing * 0.6;
@@ -334,6 +338,14 @@
       
       return path;
     }
+    
+
+    
+
+    
+
+    
+
   }
 
   // --- Animation and cycling logic ---
