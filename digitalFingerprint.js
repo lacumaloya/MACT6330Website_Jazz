@@ -83,40 +83,84 @@
     }
   }
 
-  class Loop extends DigitalFingerprint {
+  class RadialLoop extends DigitalFingerprint {
+    generate() {
+      this.ridgePaths = [];
+      for (let r = 0; r < this.ridges; r++) {
+        this.ridgePaths.push(this.generatePath(r, 0));
+      }
+    }
+    
     generatePath(r, baseOffset) {
       let path = [];
-      // Parameters for a realistic loop
-      let loopWidth = this.maxR * 1.15;
-      let loopHeight = this.maxR * 0.85;
-      let coreX = this.cx - loopWidth * 0.35; // More offset for realism
-      let coreY = this.cy + loopHeight * 0.08;
-      let ridgeOffset = (r - this.ridges / 2) * 8.5; // Slightly more spread
-      for (let i = 0; i < this.pointsPerRidge; i++) {
-        let t = i / (this.pointsPerRidge - 1);
-        // Use a non-semicircular arc, more open at the top
-        let angle = Math.PI * (0.78 * t + 0.13);
-        let x = coreX + Math.cos(angle) * (loopWidth * (0.68 - 0.18 * t));
-        let y = coreY + Math.sin(angle) * (loopHeight * (1.0 - 0.38 * t)) + ridgeOffset;
-        // Add a pronounced hook at the end
-        if (t > 0.72) {
-          x += 18 * (t - 0.72);
-          y -= 10 * (t - 0.72);
+      let points = this.pointsPerRidge;
+      
+      // Define the core position - single unified core
+      let coreX = this.cx - this.maxR * 0.15;
+      let coreY = this.cy - this.maxR * 0.05;
+      
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        
+        // Create ONE continuous parabolic curve - NO SEPARATION
+        let x, y;
+        
+        // Single unified parabolic curve
+        let smoothT = t * t * t * (10 - 15 * t + 6 * t * t); // Smoothstep for natural curve
+        
+        // Parabolic shape: x varies linearly, y follows parabolic curve
+        let parabolaWidth = this.maxR * 1.4;
+        let parabolaHeight = this.maxR * 0.8;
+        
+        // X coordinate: linear progression from left to right
+        x = coreX - parabolaWidth/2 + parabolaWidth * smoothT;
+        
+        // Y coordinate: parabolic curve (y = ax² + bx + c)
+        let normalizedX = (smoothT - 0.5) * 2; // -1 to 1
+        let parabolicY = parabolaHeight * normalizedX * normalizedX; // Positive for upward curve
+        y = coreY + parabolicY;
+        
+        // Add ridge offset for parallel ridges - tighter spacing for better density
+        let ridgeSpacing = 1.8;
+        let ridgeIndex = r - this.ridges / 2;
+        x += ridgeIndex * ridgeSpacing;
+        y += ridgeIndex * ridgeSpacing;
+        
+        // Subtle flow variation - unified across entire loop
+        let flowVariation = Math.sin(t * Math.PI * 2.2 + r * 0.12) * 0.3;
+        x += flowVariation * 1.0;
+        y += flowVariation * 0.6;
+        
+        // Subtle texture - unified across entire loop
+        let textureX = Math.sin(t * Math.PI * 2.8 + r * 0.18) * 0.2;
+        let textureY = Math.sin(t * Math.PI * 2.4 + r * 0.22) * 0.15;
+        x += textureX;
+        y += textureY;
+        
+        // Core enhancement - unified across loop area
+        if (t > 0.2 && t < 0.8) {
+          let coreEnhancement = Math.sin((t - 0.2) * Math.PI / 0.6) * 0.5;
+          x += coreEnhancement * 0.8;
+          y += coreEnhancement * 0.5;
         }
-        // Add a subtle delta at the start
-        if (t < 0.12) {
-          y += 12 * (0.12 - t);
-        }
-        // Add noise for realism
-        y += Math.sin(t * Math.PI * 2 + r * 0.19) * 1.5;
-        x += Math.sin(t * Math.PI + r * 0.13) * 0.7;
-        path.push({x, y, t});
+        
+        // Rotate parabola so the top of the arch faces up
+        let rotationAngle = 0;
+        let centerX = this.cx;
+        let centerY = this.cy;
+        // Flip on y-axis (negate x coordinate)
+        let flippedX = centerX - (x - centerX);
+        let rotatedX = centerX + (flippedX - centerX) * Math.cos(rotationAngle) - (y - centerY) * Math.sin(rotationAngle);
+        let rotatedY = centerY + (flippedX - centerX) * Math.sin(rotationAngle) + (y - centerY) * Math.cos(rotationAngle);
+        
+        path.push({ x: rotatedX, y: rotatedY, t });
       }
+      
       return path;
     }
   }
 
-  class Arch extends DigitalFingerprint {
+  class PlainArch extends DigitalFingerprint {
     generatePath(r, baseOffset) {
       let path = [];
       let archRadius = this.maxR * 0.9 - r * (this.maxR * 0.035);
@@ -158,8 +202,8 @@
   }
 
   class DoubleLoop extends DigitalFingerprint {
-      generate() {
-    this.ridgePaths = [];
+    generate() {
+      this.ridgePaths = [];
     
     // Generate multiple parallel ridges that follow the same S-curve spine
     for (let r = 0; r < this.ridges; r++) {
@@ -349,7 +393,7 @@
   }
 
   // --- Animation and cycling logic ---
-  const types = [Whorl, Loop, Arch, TentedArch, DoubleLoop];
+  const types = [Whorl, RadialLoop, PlainArch, TentedArch, DoubleLoop];
   let currentType = 0;
   let fingerprint = null;
   let dotsDrawn = [];
@@ -364,9 +408,9 @@
     if (fingerprint instanceof DoubleLoop) {
       fingerprint.ridges = 15;
       fingerprint.pointsPerRidge = 120;
-    } else if (fingerprint instanceof Loop) {
-      fingerprint.ridges = 35; // Keep more layers
-      fingerprint.pointsPerRidge = 120; // Increased for denser, smoother ridges
+    } else if (fingerprint instanceof RadialLoop) {
+      fingerprint.ridges = 45; // Higher density for better match with reference
+      fingerprint.pointsPerRidge = 160; // More points for ultra-smooth curves
     } else {
       fingerprint.ridges = 15;
       fingerprint.pointsPerRidge = 50;
