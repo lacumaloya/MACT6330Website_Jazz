@@ -93,69 +93,36 @@
     
     generatePath(r, baseOffset) {
       let path = [];
-      let points = this.pointsPerRidge;
+      let loopTurns = 1.0 + 0.3 * (r / this.ridges); // Varies by ridge like whorl
       
-      // Define the core position - single unified core
-      let coreX = this.cx - this.maxR * 0.15;
-      let coreY = this.cy - this.maxR * 0.05;
-      
-      for (let i = 0; i < points; i++) {
-        let t = i / (points - 1);
+      for (let i = 0; i < this.pointsPerRidge * loopTurns; i++) {
+        let t = i / (this.pointsPerRidge * loopTurns);
+        let theta = t * Math.PI * 2 * loopTurns;
         
-        // Create ONE continuous parabolic curve - NO SEPARATION
-        let x, y;
+        // Layered sine waves for natural flow - like whorl genius!
+        let flow = Math.sin(theta * 1.4 + r * 0.15) * 0.22 + Math.sin(theta * 2.8 + r * 0.4) * 0.08;
         
-        // Single unified parabolic curve
-        let smoothT = t * t * t * (10 - 15 * t + 6 * t * t); // Smoothstep for natural curve
+        // Dynamic radius with natural variation
+        let rr = baseOffset + this.maxR * 0.4 + 8 * Math.sin(theta * 1.8 + r * 0.6);
         
-        // Parabolic shape: x varies linearly, y follows parabolic curve
-        let parabolaWidth = this.maxR * 1.4;
-        let parabolaHeight = this.maxR * 0.8;
+        // Core position - upper-left of the loop
+        let coreX = this.cx - this.maxR * 0.2;
+        let coreY = this.cy - this.maxR * 0.25;
         
-        // X coordinate: linear progression from left to right
-        x = coreX - parabolaWidth/2 + parabolaWidth * smoothT;
+        // Create loop structure: right → around core → right
+        let x = coreX + rr * Math.cos(theta + flow) * 0.8;
+        let y = coreY + rr * Math.sin(theta + flow) * 1.2;
         
-        // Y coordinate: parabolic curve (y = ax² + bx + c)
-        let normalizedX = (smoothT - 0.5) * 2; // -1 to 1
-        let parabolicY = parabolaHeight * normalizedX * normalizedX; // Positive for upward curve
-        y = coreY + parabolicY;
-        
-        // Add ridge offset for parallel ridges - tighter spacing for better density
-        let ridgeSpacing = 1.8;
-        let ridgeIndex = r - this.ridges / 2;
-        x += ridgeIndex * ridgeSpacing;
-        y += ridgeIndex * ridgeSpacing;
-        
-        // Subtle flow variation - unified across entire loop
-        let flowVariation = Math.sin(t * Math.PI * 2.2 + r * 0.12) * 0.3;
-        x += flowVariation * 1.0;
-        y += flowVariation * 0.6;
-        
-        // Subtle texture - unified across entire loop
-        let textureX = Math.sin(t * Math.PI * 2.8 + r * 0.18) * 0.2;
-        let textureY = Math.sin(t * Math.PI * 2.4 + r * 0.22) * 0.15;
-        x += textureX;
-        y += textureY;
-        
-        // Core enhancement - unified across loop area
-        if (t > 0.2 && t < 0.8) {
-          let coreEnhancement = Math.sin((t - 0.2) * Math.PI / 0.6) * 0.5;
-          x += coreEnhancement * 0.8;
-          y += coreEnhancement * 0.5;
+        // Core enhancement - tighter curves near core
+        if (theta > Math.PI * 0.8 && theta < Math.PI * 2.2) {
+          let coreIntensity = Math.sin((theta - Math.PI * 0.8) / (Math.PI * 1.4)) * 0.4;
+          let coreRadius = this.maxR * 0.15;
+          x = coreX + coreRadius * Math.cos(theta + flow) + (x - coreX) * (1 - coreIntensity * 0.6);
+          y = coreY + coreRadius * Math.sin(theta + flow) + (y - coreY) * (1 - coreIntensity * 0.6);
         }
         
-        // Rotate parabola so the top of the arch faces up
-        let rotationAngle = 0;
-        let centerX = this.cx;
-        let centerY = this.cy;
-        // Flip on y-axis (negate x coordinate)
-        let flippedX = centerX - (x - centerX);
-        let rotatedX = centerX + (flippedX - centerX) * Math.cos(rotationAngle) - (y - centerY) * Math.sin(rotationAngle);
-        let rotatedY = centerY + (flippedX - centerX) * Math.sin(rotationAngle) + (y - centerY) * Math.cos(rotationAngle);
-        
-        path.push({ x: rotatedX, y: rotatedY, t });
+        path.push({x, y, t});
       }
-      
       return path;
     }
   }
@@ -409,8 +376,8 @@
       fingerprint.ridges = 15;
       fingerprint.pointsPerRidge = 120;
     } else if (fingerprint instanceof RadialLoop) {
-      fingerprint.ridges = 45; // Higher density for better match with reference
-      fingerprint.pointsPerRidge = 160; // More points for ultra-smooth curves
+      fingerprint.ridges = 15; // Same as whorl for proper aeration
+      fingerprint.pointsPerRidge = 50; // Same as whorl for proper spacing
     } else {
       fingerprint.ridges = 15;
       fingerprint.pointsPerRidge = 50;
