@@ -279,6 +279,23 @@
             }
           }
         }
+        
+        // Add fanning extensions to left terminal ends - make them very visible
+        if (r < this.ridges / 2 && theta > Math.PI * 1.5) { // Half the ridges, wider range
+          let extensionT = (theta - Math.PI * 1.5) / (Math.PI * 0.7); // 0 to 1 for extension
+          let fanAngle = Math.PI * 0.1 + extensionT * Math.PI * 0.8; // Fan outward and upward
+          let fanRadius = this.maxR * 0.8 * extensionT; // Much larger extension
+          
+          // Create fanning extension
+          let fanX = x + fanRadius * Math.cos(fanAngle);
+          let fanY = y + fanRadius * Math.sin(fanAngle);
+          
+          // Apply same tilt to fanning extension
+          let fanTiltedX = centerX + (fanX - centerX) * Math.cos(tiltAngle) - (fanY - centerY) * Math.sin(tiltAngle);
+          let fanTiltedY = centerY + (fanX - centerX) * Math.sin(tiltAngle) + (fanY - centerY) * Math.cos(tiltAngle);
+          
+          path.push({x: fanTiltedX, y: fanTiltedY, t: 0.9 + extensionT * 0.1}); // Extend t parameter for color flow
+        }
       }
       return path;
     }
@@ -287,17 +304,41 @@
   class PlainArch extends DigitalFingerprint {
     generatePath(r, baseOffset) {
       let path = [];
-      let archRadius = this.maxR * 0.9 - r * (this.maxR * 0.035);
-      let centerY = this.cy + this.maxR * 0.7;
-      let sweep = Math.PI * 0.95;
-      let ridgeOffset = (r - this.ridges / 2) * 2.2;
-      for (let i = 0; i < this.pointsPerRidge; i++) {
-        let t = i / (this.pointsPerRidge - 1);
-        let theta = Math.PI + sweep * (t - 0.5);
-        let x = this.cx + archRadius * Math.cos(theta);
-        let y = centerY + archRadius * Math.sin(theta) + ridgeOffset;
-        y += Math.sin(t * Math.PI * 2 + r * 0.18) * 0.6;
-        path.push({ x, y, t });
+      let points = this.pointsPerRidge;
+      
+      // Simple ridge stacking
+      let ridgeIndex = r - this.ridges / 2;
+      let ridgeSpacing = 2.5;
+      
+      // Arch dimensions
+      let archWidth = this.maxR * 1.6;
+      let archHeight = this.maxR * 1.0;
+      
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        
+        // Simple arch curve
+        let x = this.cx - archWidth * 0.5 + t * archWidth;
+        let y = this.cy + archHeight * 0.4;
+        
+        // Arch curve - simple sine wave
+        let archCurve = Math.sin(t * Math.PI) * archHeight * 0.8;
+        y -= archCurve;
+        
+        // Stack ridges perpendicular to the curve
+        let perpX = -Math.cos(t * Math.PI) * archHeight * 1.2;
+        let perpY = 1.0;
+        
+        // Normalize perpendicular vector
+        let perpLength = Math.sqrt(perpX * perpX + perpY * perpY);
+        perpX /= perpLength;
+        perpY /= perpLength;
+        
+        // Apply ridge offset
+        x += ridgeIndex * ridgeSpacing * perpX;
+        y += ridgeIndex * ridgeSpacing * perpY;
+        
+        path.push({x, y, t});
       }
       return path;
     }
