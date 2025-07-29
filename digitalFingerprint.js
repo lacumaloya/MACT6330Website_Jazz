@@ -42,19 +42,52 @@
     }
     draw(dotsDrawn, dotsPerFrame) {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      console.log('Drawing', this.ridgePaths.length, 'ridges');
       for (let r = 0; r < this.ridgePaths.length; r++) {
         let path = this.ridgePaths[r];
         let maxDots = dotsDrawn[r] || 0;
+        console.log('Ridge', r, 'drawing', maxDots, 'dots out of', path.length, 'archIndex:', Math.floor(r / this.ridges));
         for (let i = 0; i < maxDots && i < path.length; i++) {
           let pt = path[i];
           let color = pt.t < 0.5 ? lerpColor(blue, purple, pt.t * 2) : lerpColor(purple, pink, (pt.t - 0.5) * 2);
           let fade = 1.0;
           if (pt.t > 0.85) fade = Math.max(0, 1.0 - (pt.t - 0.85) * 4.5);
+          
+          // Add space between dots for plain arch
+          let dotSize = 2.1 + 1.2 * Math.sin(r + i * 0.13);
+          if (this.constructor.name === 'PlainArch' || this.constructor.name.includes('PlainArchVariation')) {
+            // Layer colors for plain arch: blue, purple, pink
+            let layerColor;
+            if (r < this.ridges / 3) {
+              layerColor = '#' + blue.toString(16).padStart(6, '0'); // Blue layer
+            } else if (r < (this.ridges * 2) / 3) {
+              layerColor = '#' + purple.toString(16).padStart(6, '0'); // Purple layer
+            } else {
+              layerColor = '#' + pink.toString(16).padStart(6, '0'); // Pink layer
+            }
+            
+            // Skip every other dot to spread them out
+            if (i % 2 === 0) {
+              // Add subtle noise to dot positions
+              let noiseX = (Math.random() - 0.5) * 1.5;
+              let noiseY = (Math.random() - 0.5) * 1.5;
+              
+              this.ctx.save();
+              this.ctx.globalAlpha = 0.85 * fade;
+              this.ctx.fillStyle = layerColor;
+              this.ctx.beginPath();
+              this.ctx.arc(pt.x + noiseX, pt.y + noiseY, dotSize, 0, Math.PI * 2);
+              this.ctx.fill();
+              this.ctx.restore();
+            }
+            continue; // Skip the rest of the loop for plain arch
+          }
+          
           this.ctx.save();
           this.ctx.globalAlpha = 0.85 * fade;
           this.ctx.fillStyle = color;
           this.ctx.beginPath();
-          this.ctx.arc(pt.x, pt.y, 2.1 + 1.2 * Math.sin(r + i * 0.13), 0, Math.PI * 2);
+          this.ctx.arc(pt.x, pt.y, dotSize, 0, Math.PI * 2);
           this.ctx.fill();
           this.ctx.restore();
         }
@@ -302,31 +335,46 @@
   }
 
   class PlainArch extends DigitalFingerprint {
+    generate() {
+      this.ridgePaths = [];
+      // Create double the ridges for two arches
+      console.log('Generating PlainArch with', this.ridges * 2, 'ridges');
+      for (let r = 0; r < this.ridges * 2; r++) {
+        let path = this.generatePath(r, 0);
+        console.log('Ridge', r, 'has', path.length, 'points, archIndex:', Math.floor(r / this.ridges));
+        this.ridgePaths.push(path);
+      }
+    }
+    
     generatePath(r, baseOffset) {
       let path = [];
       let points = this.pointsPerRidge;
       
-      // Simple ridge stacking
-      let ridgeIndex = r - this.ridges / 2;
-      let ridgeSpacing = 2.5;
+      // Determine which arch this ridge belongs to
+      let archIndex = Math.floor(r / this.ridges);
+      let ridgeIndex = (r % this.ridges) - this.ridges / 2;
+      let ridgeSpacing = 1.8; // Tighter spacing for layered effect
       
-      // Arch dimensions
-      let archWidth = this.maxR * 1.6;
-      let archHeight = this.maxR * 1.0;
+      console.log('generatePath called for ridge', r, 'archIndex:', archIndex, 'ridgeIndex:', ridgeIndex);
+        
+      // Arch dimensions - make second arch much larger and more obvious
+      let archWidth = this.maxR * (1.4 + archIndex * 0.3);
+      let archHeight = this.maxR * (0.9 + archIndex * 0.2);
       
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
-        // Simple arch curve
+        // Base arch curve
         let x = this.cx - archWidth * 0.5 + t * archWidth;
-        let y = this.cy + archHeight * 0.4;
+        let y = this.cy + archHeight * (0.3 + archIndex * 0.4); // Much closer positioning
         
-        // Arch curve - simple sine wave
-        let archCurve = Math.sin(t * Math.PI) * archHeight * 0.8;
+        // Arch curve - smooth rise and fall
+        let archCurve = Math.sin(t * Math.PI) * archHeight * 0.7;
         y -= archCurve;
         
-        // Stack ridges perpendicular to the curve
-        let perpX = -Math.cos(t * Math.PI) * archHeight * 1.2;
+        // Simple tectonic plate layering - just move each line over the next
+        // Each ridge is offset perpendicular to the arch curve
+        let perpX = -Math.cos(t * Math.PI) * archHeight * 1.0;
         let perpY = 1.0;
         
         // Normalize perpendicular vector
@@ -334,9 +382,17 @@
         perpX /= perpLength;
         perpY /= perpLength;
         
-        // Apply ridge offset
+        // Layer each ridge directly on top of the next - like tectonic plates
         x += ridgeIndex * ridgeSpacing * perpX;
         y += ridgeIndex * ridgeSpacing * perpY;
+        
+        // Add some debugging - make second arch more obvious
+        if (archIndex === 1) {
+          x += 50; // Move second arch to the right
+          console.log('Second arch point:', x, y, 'ridgeIndex:', ridgeIndex);
+        } else {
+          console.log('First arch point:', x, y, 'ridgeIndex:', ridgeIndex);
+        }
         
         path.push({x, y, t});
       }
@@ -566,9 +622,105 @@
   let animating = true;
   let patternComplete = false;
   let transitionDelay = 1800;
+  
+  // Create 12 plain arch variations
+  let plainArchCount = 0;
+  let plainArchVariations = [];
+  
+  // Create 12 different plain arch classes
+  for (let i = 0; i < 12; i++) {
+    class PlainArchVariation extends DigitalFingerprint {
+      constructor(canvas, ctx) {
+        super(canvas, ctx);
+        this.variationIndex = i;
+      }
+      
+      generate() {
+        this.ridgePaths = [];
+        // Create single plain arch with proper texture
+        console.log('Generating PlainArchVariation with', this.ridges, 'ridges');
+        for (let r = 0; r < this.ridges; r++) {
+          let path = this.generatePath(r, 0);
+          console.log('Ridge', r, 'has', path.length, 'points');
+          this.ridgePaths.push(path);
+        }
+      }
+      
+      generatePath(r, baseOffset) {
+        let path = [];
+        let points = this.pointsPerRidge;
+        
+        // Single arch with proper texture
+        let ridgeIndex = r - this.ridges / 2;
+        let ridgeSpacing = 2.2 + (this.variationIndex * 0.2); // Vary spacing
+        
+        // Arch dimensions - vary for each variation
+        let archWidth = this.maxR * (1.4 + (this.variationIndex * 0.1));
+        let archHeight = this.maxR * (0.9 + (this.variationIndex * 0.05));
+        
+        console.log('generatePath called for ridge', r, 'ridgeIndex:', ridgeIndex);
+        
+        for (let i = 0; i < points; i++) {
+          let t = i / (points - 1);
+          
+          // Base arch curve - whorl-like dynamic structure
+          let dynamicWidth = archWidth + 3 * Math.sin(t * Math.PI * 2.5 + r * 0.7) + 
+                            2 * Math.sin(t * Math.PI * 4.1 + r * 0.3) +
+                            1 * Math.sin(t * Math.PI * 7.2 + r * 0.9) +
+                            0.5 * Math.sin(t * Math.PI * 11.3 + r * 0.4);
+          let x = this.cx - dynamicWidth * 0.5 + t * dynamicWidth;
+          let y = this.cy;
+          
+          // Arch curve - deeper curve without asymmetry
+          let archCurve = Math.sin(t * Math.PI) * archHeight * 0.9;
+          let flow = Math.sin(t * Math.PI * 1.2 + r * 0.18) * 0.25 + 
+                     Math.sin(t * Math.PI * 3.1 + r * 0.5) * 0.15 +
+                     Math.sin(t * Math.PI * 5.2 + r * 0.3) * 0.08 +
+                     Math.sin(t * Math.PI * 8.1 + r * 0.7) * 0.04 +
+                     Math.sin(t * Math.PI * 12.3 + r * 0.6) * 0.02;
+          y -= archCurve + flow * archHeight * 0.2;
+          
+          // Enhanced tectonic plate layering with whorl-like complexity
+          let perpX = -Math.cos(t * Math.PI) * archHeight * 1.0;
+          let perpY = 1.0;
+          
+          // Normalize perpendicular vector
+          let perpLength = Math.sqrt(perpX * perpX + perpY * perpY);
+          perpX /= perpLength;
+          perpY /= perpLength;
+          
+          // Whorl-like complex ridge spacing with organic variations
+          let dynamicSpacing = ridgeSpacing + Math.sin(t * Math.PI * 2.1 + r * 0.4) * 0.6 +
+                               Math.sin(t * Math.PI * 4.3 + r * 0.6) * 0.3 +
+                               Math.sin(t * Math.PI * 6.5 + r * 0.8) * 0.15 +
+                               Math.sin(t * Math.PI * 9.2 + r * 0.3) * 0.08 +
+                               Math.sin(t * Math.PI * 13.1 + r * 0.7) * 0.04;
+          
+          // Layer each ridge with stable spacing - like tectonic plates
+          x += ridgeIndex * dynamicSpacing * perpX;
+          y += ridgeIndex * dynamicSpacing * perpY;
+          
+          console.log('Ridge', r, 'point:', x, y, 'ridgeIndex:', ridgeIndex);
+          
+          path.push({x, y, t});
+        }
+        return path;
+      }
+    }
+    plainArchVariations.push(PlainArchVariation);
+  }
 
   function generateFingerprint() {
+    // Show 12 plain arch variations in sequence
+    if (currentType === 2) { // PlainArch index
+      plainArchCount = (plainArchCount + 1) % 12; // Cycle through 12 variations
+      fingerprint = new plainArchVariations[plainArchCount](canvas, ctx);
+      console.log('Using PlainArchVariation', plainArchCount);
+    } else {
     fingerprint = new types[currentType](canvas, ctx);
+      console.log('Using', types[currentType].name);
+    }
+    
     // Set density for double loop
     if (fingerprint instanceof DoubleLoop) {
       fingerprint.ridges = 15;
@@ -582,6 +734,13 @@
     }
     fingerprint.generate();
     dotsDrawn = [];
+    
+    // Initialize dotsDrawn for PlainArch with 10x ridges
+    if (fingerprint instanceof PlainArch || fingerprint.constructor.name.includes('PlainArchVariation')) {
+      console.log('Creating PlainArch with 10x ridges');
+      dotsDrawn = new Array(fingerprint.ridges * 10).fill(0);
+      console.log('dotsDrawn array length:', dotsDrawn.length);
+    }
   }
 
   function drawFingerprint() {
