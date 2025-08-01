@@ -68,9 +68,9 @@
             
             // Skip every other dot to spread them out
             if (i % 2 === 0) {
-              // Add subtle noise to dot positions
-              let noiseX = (Math.random() - 0.5) * 1.5;
-              let noiseY = (Math.random() - 0.5) * 1.5;
+              // Add extreme noise to dot positions
+              let noiseX = (Math.random() - 0.5) * 5.5;
+              let noiseY = (Math.random() - 0.5) * 5.5;
               
               this.ctx.save();
               this.ctx.globalAlpha = 0.85 * fade;
