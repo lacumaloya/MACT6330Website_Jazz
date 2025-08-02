@@ -57,10 +57,12 @@
           let dotSize = 2.1 + 1.2 * Math.sin(r + i * 0.13);
           if (this.constructor.name === 'PlainArch' || this.constructor.name.includes('PlainArchVariation')) {
             // Layer colors for plain arch: blue, purple, pink
+            // Use ridge index within each arch for consistent coloring
+            let ridgeInArch = r % this.ridges;
             let layerColor;
-            if (r < this.ridges / 3) {
+            if (ridgeInArch < this.ridges / 3) {
               layerColor = '#' + blue.toString(16).padStart(6, '0'); // Blue layer
-            } else if (r < (this.ridges * 2) / 3) {
+            } else if (ridgeInArch < (this.ridges * 2) / 3) {
               layerColor = '#' + purple.toString(16).padStart(6, '0'); // Purple layer
             } else {
               layerColor = '#' + pink.toString(16).padStart(6, '0'); // Pink layer
@@ -637,9 +639,9 @@
       
       generate() {
         this.ridgePaths = [];
-        // Create single plain arch with proper texture
-        console.log('Generating PlainArchVariation with', this.ridges, 'ridges');
-        for (let r = 0; r < this.ridges; r++) {
+        // Create 5 progressively smaller arches in sequence
+        console.log('Generating PlainArchVariation with', this.ridges * 5, 'ridges (5 progressively smaller arches)');
+        for (let r = 0; r < this.ridges * 5; r++) {
           let path = this.generatePath(r, 0);
           console.log('Ridge', r, 'has', path.length, 'points');
           this.ridgePaths.push(path);
@@ -650,38 +652,53 @@
         let path = [];
         let points = this.pointsPerRidge;
         
-        // Single arch with proper texture
-        let ridgeIndex = r - this.ridges / 2;
-        let ridgeSpacing = 2.2 + (this.variationIndex * 0.2); // Vary spacing
+        // Determine which arch this ridge belongs to (0, 1, 2, 3, or 4)
+        let archIndex = Math.floor(r / this.ridges); // 0, 1, 2, 3, or 4 (progressively smaller arches)
+        let ridgeIndex = (r % this.ridges) - this.ridges / 2;
         
-        // Arch dimensions - vary for each variation
-        let archWidth = this.maxR * (1.4 + (this.variationIndex * 0.1));
-        let archHeight = this.maxR * (0.9 + (this.variationIndex * 0.05));
+        // Progressive size reduction: 100%, 85%, 70%, 55%, 40%
+        let sizeMultiplier;
+        if (archIndex === 0) sizeMultiplier = 1.0;      // Largest arch
+        else if (archIndex === 1) sizeMultiplier = 0.85; // Second arch
+        else if (archIndex === 2) sizeMultiplier = 0.70; // Third arch
+        else if (archIndex === 3) sizeMultiplier = 0.55; // Fourth arch
+        else sizeMultiplier = 0.40;                      // Smallest arch (fifth)
+        
+        // Adjust ridge spacing based on sub-arch size for cleaner nesting
+        let baseSpacing = 2.2 + (this.variationIndex * 0.2);
+        let ridgeSpacing = baseSpacing * sizeMultiplier; // Smaller arches have tighter ridge spacing
+        
+        // Arch dimensions - scaled to match whorl size (smaller than before)
+        let archWidth = this.maxR * (1.1 + (this.variationIndex * 0.08)) * sizeMultiplier;
+        let archHeight = this.maxR * (0.7 + (this.variationIndex * 0.04)) * sizeMultiplier;
         
         console.log('generatePath called for ridge', r, 'ridgeIndex:', ridgeIndex);
         
         for (let i = 0; i < points; i++) {
-          let t = i / (points - 1);
+          // Extend the parameter range to make ridges longer while keeping arch width
+          let t = (i / (points - 1)) * 1.4 - 0.2; // Extends from -0.2 to 1.2 instead of 0 to 1
           
-          // Base arch curve - whorl-like dynamic structure
-          let dynamicWidth = archWidth + 3 * Math.sin(t * Math.PI * 2.5 + r * 0.7) + 
-                            2 * Math.sin(t * Math.PI * 4.1 + r * 0.3) +
-                            1 * Math.sin(t * Math.PI * 7.2 + r * 0.9) +
-                            0.5 * Math.sin(t * Math.PI * 11.3 + r * 0.4);
+          // Simplified dynamic width for more natural arch shape
+          let dynamicWidth = archWidth + 2 * Math.sin(t * Math.PI * 2.2 + r * 0.5) + 
+                            1 * Math.sin(t * Math.PI * 3.8 + r * 0.3) +
+                            0.5 * Math.sin(t * Math.PI * 6.1 + r * 0.7); // Cleaner, less chaotic variations
           let x = this.cx - dynamicWidth * 0.5 + t * dynamicWidth;
-          let y = this.cy;
+          // Position arches progressively - centered as a group
+          // With 5 arches (0,1,2,3,4), center the group by offsetting by -2 * 35 = -70
+          let y = this.cy + (archIndex - 2) * 35; // Stack arches 35px apart, centered as group
           
-          // Arch curve - deeper curve without asymmetry
-          let archCurve = Math.sin(t * Math.PI) * archHeight * 0.9;
-          let flow = Math.sin(t * Math.PI * 1.2 + r * 0.18) * 0.25 + 
-                     Math.sin(t * Math.PI * 3.1 + r * 0.5) * 0.15 +
-                     Math.sin(t * Math.PI * 5.2 + r * 0.3) * 0.08 +
-                     Math.sin(t * Math.PI * 8.1 + r * 0.7) * 0.04 +
-                     Math.sin(t * Math.PI * 12.3 + r * 0.6) * 0.02;
-          y -= archCurve + flow * archHeight * 0.2;
+          // More natural arch curve - handle extended range for longer ridges
+          // Only apply arch curve in the main arch area (t between 0 and 1)
+          let normalizedT = Math.max(0, Math.min(1, t)); // Clamp t to 0-1 for arch curve
+          let archCurve = Math.sin(normalizedT * Math.PI) * archHeight * 0.85;
+          // Simplified, more natural flow variations
+          let flow = Math.sin(t * Math.PI * 1.5 + r * 0.2) * 0.15 + 
+                     Math.sin(t * Math.PI * 2.8 + r * 0.4) * 0.08 +
+                     Math.sin(t * Math.PI * 4.2 + r * 0.6) * 0.04;
+          y -= archCurve + flow * archHeight * 0.15; // Reduced flow intensity for cleaner look
           
-          // Enhanced tectonic plate layering with whorl-like complexity
-          let perpX = -Math.cos(t * Math.PI) * archHeight * 1.0;
+          // Enhanced tectonic plate layering - use normalized t for consistent perpendicular direction
+          let perpX = -Math.cos(normalizedT * Math.PI) * archHeight * 1.0;
           let perpY = 1.0;
           
           // Normalize perpendicular vector
@@ -735,10 +752,10 @@
     fingerprint.generate();
     dotsDrawn = [];
     
-    // Initialize dotsDrawn for PlainArch with 10x ridges
+    // Initialize dotsDrawn for PlainArch with 5x ridges (5 progressively smaller arches)
     if (fingerprint instanceof PlainArch || fingerprint.constructor.name.includes('PlainArchVariation')) {
-      console.log('Creating PlainArch with 10x ridges');
-      dotsDrawn = new Array(fingerprint.ridges * 10).fill(0);
+      console.log('Creating PlainArch with 5x ridges');
+              dotsDrawn = new Array(fingerprint.ridges * 5).fill(0);
       console.log('dotsDrawn array length:', dotsDrawn.length);
     }
   }
