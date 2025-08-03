@@ -405,21 +405,90 @@
   class TentedArch extends DigitalFingerprint {
     generatePath(r, baseOffset) {
       let path = [];
-      let archRadius = this.maxR * 0.9 - r * (this.maxR * 0.035);
-      let centerY = this.cy + this.maxR * 0.7;
-      let sweep = Math.PI * 0.95;
-      let ridgeOffset = (r - this.ridges / 2) * 2.2;
-      for (let i = 0; i < this.pointsPerRidge; i++) {
-        let t = i / (this.pointsPerRidge - 1);
-        let theta = Math.PI + sweep * (t - 0.5);
-        let x = this.cx + archRadius * Math.cos(theta);
-        let y = centerY + archRadius * Math.sin(theta) + ridgeOffset;
-        if (t > 0.45 && t < 0.55) {
-          y -= Math.sin((t - 0.5) * Math.PI * 10) * 20;
+      let points = this.pointsPerRidge;
+      
+      // Use whorl-scale sizing for consistency
+      let ridgeIndex = (r - this.ridges / 2);
+      let ridgeSpacing = 2.8;
+      
+      // Arch dimensions using whorl scale
+      let archWidth = this.maxR * 1.6;
+      let archHeight = this.maxR * 0.8;
+      
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        
+        // Step 1: Start with a basic arch pattern (like plain arch)
+        let x = this.cx - archWidth * 0.5 + t * archWidth;
+        let y = this.cy + archHeight * 0.3; // Base line
+        
+        // Basic arch curve
+        let archCurve = Math.sin(t * Math.PI) * archHeight * 0.6;
+        y -= archCurve;
+        
+        // Step 2: Add the "pinch" or "implosion" effect at the center
+        let pinchStrength = 0;
+        let pinchPull = 0;
+        
+        // Define pinch zone - narrow area in center
+        if (t > 0.4 && t < 0.6) {
+          let pinchT = (t - 0.4) / 0.2; // 0 to 1 in pinch zone
+          
+          // Sharp triangular pinch upward
+          if (pinchT <= 0.5) {
+            pinchStrength = pinchT * 2; // 0 to 1
+          } else {
+            pinchStrength = 2 - (pinchT * 2); // 1 to 0
+          }
+          
+          // Make it sharp and dramatic
+          pinchStrength = Math.pow(pinchStrength, 0.5); // Sharper curve
+          
+          // Pull upward (implosion effect)
+          let pinchHeight = pinchStrength * archHeight * 0.8;
+          y -= pinchHeight;
+          
+          // Pull inward toward center (pinch effect)
+          pinchPull = Math.sin(pinchT * Math.PI) * 0.3;
+          x = x + (this.cx - x) * pinchPull;
         }
-        y += Math.sin(t * Math.PI * 2 + r * 0.18) * 0.6;
+        
+        // Step 3: Apply ridge layering perpendicular to the pinched surface
+        // Simple perpendicular offset for ridge spacing
+        let perpX = 0;
+        let perpY = 1;
+        
+        // Adjust perpendicular direction in pinch zone
+        if (t > 0.4 && t < 0.6) {
+          let pinchT = (t - 0.4) / 0.2;
+          if (pinchT <= 0.5) {
+            perpX = -pinchT * 2; // Lean left going up
+          } else {
+            perpX = (pinchT - 0.5) * 4; // Lean right going down
+          }
+        }
+        
+        // Normalize
+        let perpLength = Math.sqrt(perpX * perpX + perpY * perpY);
+        if (perpLength > 0) {
+          perpX /= perpLength;
+          perpY /= perpLength;
+        }
+        
+        // Apply ridge offset
+        x += ridgeIndex * ridgeSpacing * perpX;
+        y += ridgeIndex * ridgeSpacing * perpY;
+        
+        // Add subtle natural variations
+        let naturalFlow = Math.sin(t * Math.PI * 2 + r * 0.3) * 0.5 +
+                         Math.sin(t * Math.PI * 4 + r * 0.7) * 0.2;
+        
+        x += naturalFlow;
+        y += naturalFlow * 0.3;
+        
         path.push({ x, y, t });
       }
+      
       return path;
     }
   }
