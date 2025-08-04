@@ -402,62 +402,32 @@
   class TentedArch extends DigitalFingerprint {
     generate() {
       this.ridgePaths = [];
-      // 1. Generate the outermost tent arch path (archIndex 0)
-      let outerArchPath = this.generatePath(0, 0);
-      // 2. For each riverbend, offset the outer arch outward along the radial vector from center
-      this.riverbendCount = 2;
-      let gapBase = 18; // base gap in pixels
-      for (let rb = 0; rb < this.riverbendCount; rb++) {
-        let gap = gapBase + rb * 16; // increase gap for each riverbend
-        let riverbendPath = [];
-        for (let i = 0; i < outerArchPath.length; i++) {
-          let pt = outerArchPath[i];
-          // Radial vector from center to point
-          let vx = pt.x - this.cx;
-          let vy = pt.y - this.cy;
-          let vlen = Math.sqrt(vx * vx + vy * vy) || 1;
-          let offsetX = pt.x + (vx / vlen) * gap;
-          let offsetY = pt.y + (vy / vlen) * gap;
-          riverbendPath.push({ x: offsetX, y: offsetY, t: pt.t, riverbend: true });
-        }
-        // Add a smooth arc beneath the tent to connect the ends
-        let leftEnd = riverbendPath[0];
-        let rightEnd = riverbendPath[riverbendPath.length - 1];
-        let arcPoints = 20;
-        let arcDepth = this.cy + this.maxR * 0.7 + gap * 0.5; // How far below the tent the arc dips
-        for (let j = 1; j <= arcPoints; j++) {
-          let arcT = j / (arcPoints + 1);
-          // Quadratic Bezier: leftEnd -> (cx, arcDepth) -> rightEnd
-          let bx = (1 - arcT) * (1 - arcT) * rightEnd.x + 2 * (1 - arcT) * arcT * this.cx + arcT * arcT * leftEnd.x;
-          let by = (1 - arcT) * (1 - arcT) * rightEnd.y + 2 * (1 - arcT) * arcT * arcDepth + arcT * arcT * leftEnd.y;
-          riverbendPath.push({ x: bx, y: by, t: 1 + arcT, riverbend: true });
-        }
-        this.ridgePaths.push(riverbendPath);
-      }
-      // 3. Add the 5 tented arches as before
-      console.log('Generating TentedArch with', this.ridges * 5, 'ridges (5 progressively smaller tented arches)');
-      for (let r = 0; r < this.ridges * 5; r++) {
+      // Create 3 progressively smaller tented arches in sequence
+      console.log('Generating TentedArch with', this.ridges * 3, 'ridges (3 progressively smaller tented arches)');
+      for (let r = 0; r < this.ridges * 3; r++) {
         let path = this.generatePath(r, 0);
         console.log('Ridge', r, 'has', path.length, 'points');
         this.ridgePaths.push(path);
       }
+      
+      // Add one smooth curve underneath the arch
+      let underCurve = this.generateUnderCurve();
+      this.ridgePaths.push(underCurve);
     }
     
     generatePath(r, baseOffset) {
       let path = [];
       let points = this.pointsPerRidge;
       
-      // Determine which arch this ridge belongs to (0, 1, 2, 3, or 4)
-      let archIndex = Math.floor(r / this.ridges); // 0, 1, 2, 3, or 4 (progressively smaller arches)
+      // Determine which arch this ridge belongs to (0, 1, or 2)
+      let archIndex = Math.floor(r / this.ridges); // 0, 1, or 2 (progressively smaller arches)
       let ridgeIndex = (r % this.ridges) - this.ridges / 2;
       
-      // Progressive size reduction: 100%, 85%, 70%, 55%, 40%
+      // Progressive size reduction: 100%, 85%, 70%
       let sizeMultiplier;
       if (archIndex === 0) sizeMultiplier = 1.0;      // Largest arch
       else if (archIndex === 1) sizeMultiplier = 0.85; // Second arch
-      else if (archIndex === 2) sizeMultiplier = 0.70; // Third arch
-      else if (archIndex === 3) sizeMultiplier = 0.55; // Fourth arch
-      else sizeMultiplier = 0.40;                      // Smallest arch (fifth)
+      else sizeMultiplier = 0.70;                      // Third arch
       
       // Adjust ridge spacing based on sub-arch size for cleaner nesting
       let baseSpacing = 2.8;
@@ -473,19 +443,19 @@
         // Start with base horizontal line
         let x = this.cx - triangleWidth * 0.5 + t * triangleWidth;
         // Position arches progressively - centered as a group
-        // With 5 arches (0,1,2,3,4), center the group by offsetting by -2 * 35 = -70
-        let y = this.cy + (archIndex - 2) * 35 + triangleHeight * 0.3; // Stack arches 35px apart, centered as group
+        // With 3 arches (0,1,2), center the group by offsetting by -1 * 35 = -35
+        let y = this.cy + (archIndex - 1) * 35 + triangleHeight * 0.3; // Stack arches 35px apart, centered as group
         
         // Create a curved "tent" peak that's more organic
         // Use a combination of arch curve and center spike
         let archCurve = Math.sin(t * Math.PI) * triangleHeight * 0.6; // Basic arch shape
         let centerSpike = 0;
         
-        // Add a steeper spike in the center region
+        // Add a more blunted spike in the center region
         if (t > 0.3 && t < 0.7) {
           let spikeT = (t - 0.3) / 0.4; // 0 to 1 in spike zone
-          // Use smooth curve but make it steeper
-          centerSpike = Math.sin(spikeT * Math.PI) * triangleHeight * 0.8;
+          // Use smooth curve but make it less sharp/more blunted
+          centerSpike = Math.sin(spikeT * Math.PI) * triangleHeight * 0.6;
         }
         
         // Combine arch and spike for natural tent shape
@@ -501,10 +471,10 @@
         // Use smooth curved slope instead of sharp triangle slopes
         let slopeX = Math.cos(t * Math.PI) * triangleHeight * 0.6; // Arch slope
         
-        // Add center spike slope contribution (steeper)
+        // Add center spike slope contribution (more blunted)
         if (t > 0.3 && t < 0.7) {
           let spikeT = (t - 0.3) / 0.4;
-          let spikeSlopeContribution = Math.cos(spikeT * Math.PI) * triangleHeight * 0.8;
+          let spikeSlopeContribution = Math.cos(spikeT * Math.PI) * triangleHeight * 0.6;
           slopeX += spikeSlopeContribution;
         }
         
@@ -527,10 +497,43 @@
         let naturalFlow = Math.sin(t * Math.PI * 2 + r * 0.3) * 0.5 +
                          Math.sin(t * Math.PI * 4 + r * 0.7) * 0.2;
         
-        x += naturalFlow;
-        y += naturalFlow * 0.3;
+        // TESTING: EXTREMELY dramatic hills - should be impossible to miss
+        let baseHillsY = Math.sin(t * Math.PI * 3) * 20.0;  // Massive 20 pixel hills
+        let baseHillsX = 0;
+        
+        x += naturalFlow + baseHillsX;
+        y += naturalFlow * 0.3 + baseHillsY;
         
         // Tilt the entire pattern 20 degrees to the right (from viewer's perspective)
+        let tiltAngle = Math.PI / 9; // +20 degrees in radians
+        let centerX = this.cx;
+        let centerY = this.cy;
+        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
+        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
+        
+        path.push({ x: tiltedX, y: tiltedY, t });
+      }
+      
+      return path;
+    }
+    
+    generateUnderCurve() {
+      let path = [];
+      let points = this.pointsPerRidge;
+      
+      // Create a smooth curve underneath the main arch
+      let curveWidth = this.maxR * 1.8;  // Wider than the main arch
+      let curveDepth = this.maxR * 0.4;  // How deep the curve goes
+      let baseY = this.cy + this.maxR * 0.8; // Position below the main arch
+      
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        
+        // Create a smooth arc underneath
+        let x = this.cx - curveWidth * 0.5 + t * curveWidth;
+        let y = baseY + Math.sin(t * Math.PI) * curveDepth; // Upward arc
+        
+        // Apply the same tilt as the main arch
         let tiltAngle = Math.PI / 9; // +20 degrees in radians
         let centerX = this.cx;
         let centerY = this.cy;
@@ -872,10 +875,14 @@
     fingerprint.generate();
     dotsDrawn = [];
     
-    // Initialize dotsDrawn for PlainArch and TentedArch with 5x ridges (5 progressively smaller arches)
-    if (fingerprint instanceof PlainArch || fingerprint.constructor.name.includes('PlainArchVariation') || fingerprint instanceof TentedArch) {
-      console.log('Creating PlainArch or TentedArch with 5x ridges');
-              dotsDrawn = new Array(fingerprint.ridges * 5).fill(0);
+    // Initialize dotsDrawn for PlainArch with 5x ridges and TentedArch with 3x ridges
+    if (fingerprint instanceof PlainArch || fingerprint.constructor.name.includes('PlainArchVariation')) {
+      console.log('Creating PlainArch with 5x ridges');
+      dotsDrawn = new Array(fingerprint.ridges * 5).fill(0);
+      console.log('dotsDrawn array length:', dotsDrawn.length);
+    } else if (fingerprint instanceof TentedArch) {
+      console.log('Creating TentedArch with 3x ridges');
+      dotsDrawn = new Array(fingerprint.ridges * 3).fill(0);
       console.log('dotsDrawn array length:', dotsDrawn.length);
     }
   }
