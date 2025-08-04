@@ -49,31 +49,29 @@
         console.log('Ridge', r, 'drawing', maxDots, 'dots out of', path.length, 'archIndex:', Math.floor(r / this.ridges));
         for (let i = 0; i < maxDots && i < path.length; i++) {
           let pt = path[i];
-          let color = pt.t < 0.5 ? lerpColor(blue, purple, pt.t * 2) : lerpColor(purple, pink, (pt.t - 0.5) * 2);
+          // Use debug color for riverbend ridges
+          let color;
+          if (pt.riverbend) {
+            color = 'teal'; // Debug color for riverbends
+          } else {
+            color = pt.t < 0.5 ? lerpColor(blue, purple, pt.t * 2) : lerpColor(purple, pink, (pt.t - 0.5) * 2);
+          }
           let fade = 1.0;
           if (pt.t > 0.85) fade = Math.max(0, 1.0 - (pt.t - 0.85) * 4.5);
-          
-          // Add space between dots for plain arch
           let dotSize = 2.1 + 1.2 * Math.sin(r + i * 0.13);
           if (this.constructor.name === 'PlainArch' || this.constructor.name.includes('PlainArchVariation')) {
-            // Layer colors for plain arch: blue, purple, pink
-            // Use ridge index within each arch for consistent coloring
             let ridgeInArch = r % this.ridges;
             let layerColor;
             if (ridgeInArch < this.ridges / 3) {
-              layerColor = '#' + blue.toString(16).padStart(6, '0'); // Blue layer
+              layerColor = '#' + blue.toString(16).padStart(6, '0');
             } else if (ridgeInArch < (this.ridges * 2) / 3) {
-              layerColor = '#' + purple.toString(16).padStart(6, '0'); // Purple layer
+              layerColor = '#' + purple.toString(16).padStart(6, '0');
             } else {
-              layerColor = '#' + pink.toString(16).padStart(6, '0'); // Pink layer
+              layerColor = '#' + pink.toString(16).padStart(6, '0');
             }
-            
-            // Skip every other dot to spread them out
             if (i % 2 === 0) {
-              // Add extreme noise to dot positions
               let noiseX = (Math.random() - 0.5) * 5.5;
               let noiseY = (Math.random() - 0.5) * 5.5;
-              
               this.ctx.save();
               this.ctx.globalAlpha = 0.85 * fade;
               this.ctx.fillStyle = layerColor;
@@ -82,9 +80,8 @@
               this.ctx.fill();
               this.ctx.restore();
             }
-            continue; // Skip the rest of the loop for plain arch
+            continue;
           }
-          
           this.ctx.save();
           this.ctx.globalAlpha = 0.85 * fade;
           this.ctx.fillStyle = color;
@@ -403,72 +400,119 @@
   }
 
   class TentedArch extends DigitalFingerprint {
+    generate() {
+      this.ridgePaths = [];
+      // 1. Generate the outermost tent arch path (archIndex 0)
+      let outerArchPath = this.generatePath(0, 0);
+      // 2. For each riverbend, offset the outer arch outward along the radial vector from center
+      this.riverbendCount = 2;
+      let gapBase = 18; // base gap in pixels
+      for (let rb = 0; rb < this.riverbendCount; rb++) {
+        let gap = gapBase + rb * 16; // increase gap for each riverbend
+        let riverbendPath = [];
+        for (let i = 0; i < outerArchPath.length; i++) {
+          let pt = outerArchPath[i];
+          // Radial vector from center to point
+          let vx = pt.x - this.cx;
+          let vy = pt.y - this.cy;
+          let vlen = Math.sqrt(vx * vx + vy * vy) || 1;
+          let offsetX = pt.x + (vx / vlen) * gap;
+          let offsetY = pt.y + (vy / vlen) * gap;
+          riverbendPath.push({ x: offsetX, y: offsetY, t: pt.t, riverbend: true });
+        }
+        // Add a smooth arc beneath the tent to connect the ends
+        let leftEnd = riverbendPath[0];
+        let rightEnd = riverbendPath[riverbendPath.length - 1];
+        let arcPoints = 20;
+        let arcDepth = this.cy + this.maxR * 0.7 + gap * 0.5; // How far below the tent the arc dips
+        for (let j = 1; j <= arcPoints; j++) {
+          let arcT = j / (arcPoints + 1);
+          // Quadratic Bezier: leftEnd -> (cx, arcDepth) -> rightEnd
+          let bx = (1 - arcT) * (1 - arcT) * rightEnd.x + 2 * (1 - arcT) * arcT * this.cx + arcT * arcT * leftEnd.x;
+          let by = (1 - arcT) * (1 - arcT) * rightEnd.y + 2 * (1 - arcT) * arcT * arcDepth + arcT * arcT * leftEnd.y;
+          riverbendPath.push({ x: bx, y: by, t: 1 + arcT, riverbend: true });
+        }
+        this.ridgePaths.push(riverbendPath);
+      }
+      // 3. Add the 5 tented arches as before
+      console.log('Generating TentedArch with', this.ridges * 5, 'ridges (5 progressively smaller tented arches)');
+      for (let r = 0; r < this.ridges * 5; r++) {
+        let path = this.generatePath(r, 0);
+        console.log('Ridge', r, 'has', path.length, 'points');
+        this.ridgePaths.push(path);
+      }
+    }
+    
     generatePath(r, baseOffset) {
       let path = [];
       let points = this.pointsPerRidge;
       
-      // Use whorl-scale sizing for consistency
-      let ridgeIndex = (r - this.ridges / 2);
-      let ridgeSpacing = 2.8;
+      // Determine which arch this ridge belongs to (0, 1, 2, 3, or 4)
+      let archIndex = Math.floor(r / this.ridges); // 0, 1, 2, 3, or 4 (progressively smaller arches)
+      let ridgeIndex = (r % this.ridges) - this.ridges / 2;
       
-      // Arch dimensions using whorl scale
-      let archWidth = this.maxR * 1.6;
-      let archHeight = this.maxR * 0.8;
+      // Progressive size reduction: 100%, 85%, 70%, 55%, 40%
+      let sizeMultiplier;
+      if (archIndex === 0) sizeMultiplier = 1.0;      // Largest arch
+      else if (archIndex === 1) sizeMultiplier = 0.85; // Second arch
+      else if (archIndex === 2) sizeMultiplier = 0.70; // Third arch
+      else if (archIndex === 3) sizeMultiplier = 0.55; // Fourth arch
+      else sizeMultiplier = 0.40;                      // Smallest arch (fifth)
+      
+      // Adjust ridge spacing based on sub-arch size for cleaner nesting
+      let baseSpacing = 2.8;
+      let ridgeSpacing = baseSpacing * sizeMultiplier; // Smaller arches have tighter ridge spacing
+      
+      // Triangle dimensions using whorl scale, scaled by arch size
+      let triangleWidth = this.maxR * 1.6 * sizeMultiplier;
+      let triangleHeight = this.maxR * 0.8 * sizeMultiplier;
       
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
-        // Step 1: Start with a basic arch pattern (like plain arch)
-        let x = this.cx - archWidth * 0.5 + t * archWidth;
-        let y = this.cy + archHeight * 0.3; // Base line
+        // Start with base horizontal line
+        let x = this.cx - triangleWidth * 0.5 + t * triangleWidth;
+        // Position arches progressively - centered as a group
+        // With 5 arches (0,1,2,3,4), center the group by offsetting by -2 * 35 = -70
+        let y = this.cy + (archIndex - 2) * 35 + triangleHeight * 0.3; // Stack arches 35px apart, centered as group
         
-        // Basic arch curve
-        let archCurve = Math.sin(t * Math.PI) * archHeight * 0.6;
-        y -= archCurve;
+        // Create a curved "tent" peak that's more organic
+        // Use a combination of arch curve and center spike
+        let archCurve = Math.sin(t * Math.PI) * triangleHeight * 0.6; // Basic arch shape
+        let centerSpike = 0;
         
-        // Step 2: Add the "pinch" or "implosion" effect at the center
-        let pinchStrength = 0;
-        let pinchPull = 0;
-        
-        // Define pinch zone - narrow area in center
-        if (t > 0.4 && t < 0.6) {
-          let pinchT = (t - 0.4) / 0.2; // 0 to 1 in pinch zone
-          
-          // Sharp triangular pinch upward
-          if (pinchT <= 0.5) {
-            pinchStrength = pinchT * 2; // 0 to 1
-          } else {
-            pinchStrength = 2 - (pinchT * 2); // 1 to 0
-          }
-          
-          // Make it sharp and dramatic
-          pinchStrength = Math.pow(pinchStrength, 0.5); // Sharper curve
-          
-          // Pull upward (implosion effect)
-          let pinchHeight = pinchStrength * archHeight * 0.8;
-          y -= pinchHeight;
-          
-          // Pull inward toward center (pinch effect)
-          pinchPull = Math.sin(pinchT * Math.PI) * 0.3;
-          x = x + (this.cx - x) * pinchPull;
+        // Add a steeper spike in the center region
+        if (t > 0.3 && t < 0.7) {
+          let spikeT = (t - 0.3) / 0.4; // 0 to 1 in spike zone
+          // Use smooth curve but make it steeper
+          centerSpike = Math.sin(spikeT * Math.PI) * triangleHeight * 0.8;
         }
         
-        // Step 3: Apply ridge layering perpendicular to the pinched surface
-        // Simple perpendicular offset for ridge spacing
-        let perpX = 0;
+        // Combine arch and spike for natural tent shape
+        let tentHeight = archCurve + centerSpike;
+        y -= tentHeight;
+        
+        // Gentle convergence toward center (not sharp pull like compass)
+        let convergenceFactor = Math.sin(t * Math.PI); // Smooth curve, strongest at center
+        let pullToCenter = convergenceFactor * centerSpike * 0.1; // Much gentler pull
+        x += (this.cx - x) * pullToCenter / triangleWidth;
+        
+        // Calculate slope at current point for perpendicular ridge layering
+        // Use smooth curved slope instead of sharp triangle slopes
+        let slopeX = Math.cos(t * Math.PI) * triangleHeight * 0.6; // Arch slope
+        
+        // Add center spike slope contribution (steeper)
+        if (t > 0.3 && t < 0.7) {
+          let spikeT = (t - 0.3) / 0.4;
+          let spikeSlopeContribution = Math.cos(spikeT * Math.PI) * triangleHeight * 0.8;
+          slopeX += spikeSlopeContribution;
+        }
+        
+        // Perpendicular to the curved surface
+        let perpX = -slopeX / triangleWidth; // Negative for proper perpendicular direction
         let perpY = 1;
         
-        // Adjust perpendicular direction in pinch zone
-        if (t > 0.4 && t < 0.6) {
-          let pinchT = (t - 0.4) / 0.2;
-          if (pinchT <= 0.5) {
-            perpX = -pinchT * 2; // Lean left going up
-          } else {
-            perpX = (pinchT - 0.5) * 4; // Lean right going down
-          }
-        }
-        
-        // Normalize
+        // Normalize perpendicular vector
         let perpLength = Math.sqrt(perpX * perpX + perpY * perpY);
         if (perpLength > 0) {
           perpX /= perpLength;
@@ -486,7 +530,14 @@
         x += naturalFlow;
         y += naturalFlow * 0.3;
         
-        path.push({ x, y, t });
+        // Tilt the entire pattern 20 degrees to the right (from viewer's perspective)
+        let tiltAngle = Math.PI / 9; // +20 degrees in radians
+        let centerX = this.cx;
+        let centerY = this.cy;
+        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
+        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
+        
+        path.push({ x: tiltedX, y: tiltedY, t });
       }
       
       return path;
@@ -821,9 +872,9 @@
     fingerprint.generate();
     dotsDrawn = [];
     
-    // Initialize dotsDrawn for PlainArch with 5x ridges (5 progressively smaller arches)
-    if (fingerprint instanceof PlainArch || fingerprint.constructor.name.includes('PlainArchVariation')) {
-      console.log('Creating PlainArch with 5x ridges');
+    // Initialize dotsDrawn for PlainArch and TentedArch with 5x ridges (5 progressively smaller arches)
+    if (fingerprint instanceof PlainArch || fingerprint.constructor.name.includes('PlainArchVariation') || fingerprint instanceof TentedArch) {
+      console.log('Creating PlainArch or TentedArch with 5x ridges');
               dotsDrawn = new Array(fingerprint.ridges * 5).fill(0);
       console.log('dotsDrawn array length:', dotsDrawn.length);
     }
