@@ -410,9 +410,20 @@
         this.ridgePaths.push(path);
       }
       
-      // Add one smooth curve underneath the arch
-      let underCurve = this.generateUnderCurve();
-      this.ridgePaths.push(underCurve);
+      // Add multiple parallel ridges for the first curve to give it more girth
+      for (let ridgeIndex = 0; ridgeIndex < 3; ridgeIndex++) {
+        let underCurve = this.generateUnderCurve(ridgeIndex);
+        this.ridgePaths.push(underCurve);
+      }
+      // Add multiple parallel ridges for the second curve to match the first curve's thickness
+      for (let ridgeIndex = 0; ridgeIndex < 3; ridgeIndex++) {
+        let underCurve2 = this.generateUnderCurve2(ridgeIndex);
+        this.ridgePaths.push(underCurve2);
+      }
+      let underCurve3 = this.generateUnderCurve3();
+      this.ridgePaths.push(underCurve3);
+      let underCurve4 = this.generateUnderCurve4();
+      this.ridgePaths.push(underCurve4);
     }
     
     generatePath(r, baseOffset) {
@@ -498,14 +509,14 @@
                          Math.sin(t * Math.PI * 4 + r * 0.7) * 0.2;
         
         // TESTING: EXTREMELY dramatic hills - should be impossible to miss
-        let baseHillsY = Math.sin(t * Math.PI * 3) * 20.0;  // Massive 20 pixel hills
+        let baseHillsY = Math.sin(t * Math.PI * 3) * 12.0;  // Flattened hills
         let baseHillsX = 0;
         
         x += naturalFlow + baseHillsX;
         y += naturalFlow * 0.3 + baseHillsY;
         
-        // Tilt the entire pattern 20 degrees to the right (from viewer's perspective)
-        let tiltAngle = Math.PI / 9; // +20 degrees in radians
+        // Tilt the entire pattern 10 degrees to the left (from viewer's perspective)
+        let tiltAngle = Math.PI / 18; // +10 degrees in radians
         let centerX = this.cx;
         let centerY = this.cy;
         let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
@@ -517,24 +528,161 @@
       return path;
     }
     
-    generateUnderCurve() {
+    generateUnderCurve(ridgeIndex = 0) {
       let path = [];
       let points = this.pointsPerRidge;
       
       // Create a smooth curve underneath the main arch
-      let curveWidth = this.maxR * 1.8;  // Wider than the main arch
-      let curveDepth = this.maxR * 0.4;  // How deep the curve goes
-      let baseY = this.cy + this.maxR * 0.8; // Position below the main arch
+      let curveWidth = this.maxR * 0.6;  // Even shorter curve
+      let curveDepth = this.maxR * 0.24;  // Flattened by 40% (0.4 * 0.6)
+      let baseY = this.cy + this.maxR * 0.35; // Move down very slightly
       
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
-        // Create a smooth arc underneath
+        // Create a smooth arc underneath, pulled northwest
         let x = this.cx - curveWidth * 0.5 + t * curveWidth;
-        let y = baseY + Math.sin(t * Math.PI) * curveDepth; // Upward arc
+        let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
         
-        // Apply the same tilt as the main arch
-        let tiltAngle = Math.PI / 9; // +20 degrees in radians
+        // Reduce diagonal pull - less northeast, more balanced
+        let diagonalPull = (t - 0.5) * this.maxR * 0.3; // Reduced pull toward the right
+        y -= diagonalPull; // Less dramatic slope
+        
+        // Pull northwest - shift slightly left
+        x -= this.maxR * 0.05;
+        
+        // Move two steps to the right (user's right, assistant's left)
+        x += this.maxR * 0.15;
+        
+        // Add parallel ridge spacing for multiple ridges
+        let ridgeSpacing = 2.5;
+        let ridgeOffset = (ridgeIndex - 1) * ridgeSpacing; // Center the middle ridge
+        x += ridgeOffset;
+        
+        // Apply clockwise tilt to the first curve
+        let tiltAngle = Math.PI / 6 + Math.PI / 36; // +35 degrees in radians (clockwise)
+        let centerX = this.cx;
+        let centerY = this.cy;
+        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
+        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
+        
+        path.push({ x: tiltedX, y: tiltedY, t });
+      }
+      
+      return path;
+    }
+    
+    generateUnderCurve2(ridgeIndex = 0) {
+      let path = [];
+      let points = this.pointsPerRidge;
+      
+      // Create a second, smaller curve underneath the first one
+      let curveWidth = this.maxR * 0.5;  // Longer to match the first curve better
+      let curveDepth = this.maxR * 0.1;  // Much flatter - almost straight
+      let baseY = this.cy + this.maxR * 0.35; // Move up one position
+      
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        
+        // Create a smooth arc underneath, similar to first curve
+        let x = this.cx - curveWidth * 0.5 + t * curveWidth;
+        let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
+        
+        // Add similar diagonal pull but slightly less
+        let diagonalPull = (t - 0.5) * this.maxR * 0.2; // Less diagonal pull
+        y -= diagonalPull;
+        
+        // Pull northwest - shift slightly left
+        x -= this.maxR * 0.05;
+        
+        // Move to align with the first curve
+        x += this.maxR * 0.15;
+        
+        // Add parallel ridge spacing for multiple ridges
+        let ridgeSpacing = 2.5;
+        let ridgeOffset = (ridgeIndex - 1) * ridgeSpacing; // Center the middle ridge
+        x += ridgeOffset;
+        
+        // Apply slightly less clockwise tilt than the first curve
+        let tiltAngle = Math.PI / 6 - Math.PI / 72; // +27.5 degrees in radians (clockwise)
+        let centerX = this.cx;
+        let centerY = this.cy;
+        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
+        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
+        
+        path.push({ x: tiltedX, y: tiltedY, t });
+      }
+      
+      return path;
+    }
+    
+    generateUnderCurve3() {
+      let path = [];
+      let points = this.pointsPerRidge;
+      
+      // Create a third, smallest curve underneath the second one
+      let curveWidth = this.maxR * 0.35;  // Even smaller than the second curve
+      let curveDepth = this.maxR * 0.05;  // Even flatter - very straight
+      let baseY = this.cy + this.maxR * 0.05; // Move up much higher
+      
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        
+        // Create a smooth arc underneath, similar to other curves
+        let x = this.cx - curveWidth * 0.5 + t * curveWidth;
+        let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
+        
+        // Add minimal diagonal pull
+        let diagonalPull = (t - 0.5) * this.maxR * 0.15; // Very minimal diagonal pull
+        y -= diagonalPull;
+        
+        // Pull northwest - shift slightly left
+        x -= this.maxR * 0.05;
+        
+        // Move two stages behind (to the left)
+        x -= this.maxR * 0.1;
+        
+        // Apply clockwise tilt
+        let tiltAngle = Math.PI / 9; // +20 degrees in radians (clockwise)
+        let centerX = this.cx;
+        let centerY = this.cy;
+        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
+        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
+        
+        path.push({ x: tiltedX, y: tiltedY, t });
+      }
+      
+      return path;
+    }
+    
+    generateUnderCurve4() {
+      let path = [];
+      let points = this.pointsPerRidge;
+      
+      // Create a fourth curve underneath the second one
+      let curveWidth = this.maxR * 0.25;  // Smaller than the second curve
+      let curveDepth = this.maxR * 0.05;  // Very flat - almost straight
+      let baseY = this.cy + this.maxR * 0.35; // Move up much higher
+      
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        
+        // Create a smooth arc underneath, similar to other curves
+        let x = this.cx - curveWidth * 0.5 + t * curveWidth;
+        let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
+        
+        // Add minimal diagonal pull
+        let diagonalPull = (t - 0.5) * this.maxR * 0.1; // Very minimal diagonal pull
+        y -= diagonalPull;
+        
+        // Pull northwest - shift slightly left
+        x -= this.maxR * 0.05;
+        
+        // Move to align with the second curve
+        x += this.maxR * 0.15;
+        
+        // Apply the same tilt as the second curve
+        let tiltAngle = Math.PI / 6 - Math.PI / 72; // +27.5 degrees in radians (clockwise)
         let centerX = this.cx;
         let centerY = this.cy;
         let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
@@ -878,7 +1026,7 @@
     // Initialize dotsDrawn for PlainArch with 5x ridges and TentedArch with 3x ridges
     if (fingerprint instanceof PlainArch || fingerprint.constructor.name.includes('PlainArchVariation')) {
       console.log('Creating PlainArch with 5x ridges');
-      dotsDrawn = new Array(fingerprint.ridges * 5).fill(0);
+              dotsDrawn = new Array(fingerprint.ridges * 5).fill(0);
       console.log('dotsDrawn array length:', dotsDrawn.length);
     } else if (fingerprint instanceof TentedArch) {
       console.log('Creating TentedArch with 3x ridges');
