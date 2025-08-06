@@ -59,7 +59,7 @@
           let fade = 1.0;
           if (pt.t > 0.85) fade = Math.max(0, 1.0 - (pt.t - 0.85) * 4.5);
           let dotSize = 2.1 + 1.2 * Math.sin(r + i * 0.13);
-          if (this.constructor.name === 'PlainArch' || this.constructor.name.includes('PlainArchVariation')) {
+          if (this.constructor.name === 'PlainArch' || this.constructor.name.includes('PlainArchVariation') || this.constructor.name === 'TentedArch') {
             let ridgeInArch = r % this.ridges;
             let layerColor;
             if (ridgeInArch < this.ridges / 3) {
