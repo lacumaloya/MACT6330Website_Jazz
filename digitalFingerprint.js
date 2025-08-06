@@ -424,6 +424,18 @@
       this.ridgePaths.push(underCurve3);
       let underCurve4 = this.generateUnderCurve4();
       this.ridgePaths.push(underCurve4);
+      
+                   // Add left-side curves to complement the under curves
+             // Add multiple parallel ridges for the first left curve to give it more thickness
+             for (let ridgeIndex = 0; ridgeIndex < 3; ridgeIndex++) {
+               let leftCurve1 = this.generateLeftCurve1(ridgeIndex);
+               this.ridgePaths.push(leftCurve1);
+             }
+             // Add multiple parallel ridges for the second left curve to match the first curve's thickness
+             for (let ridgeIndex = 0; ridgeIndex < 3; ridgeIndex++) {
+               let leftCurve2 = this.generateLeftCurve2(ridgeIndex);
+               this.ridgePaths.push(leftCurve2);
+             }
     }
     
     generatePath(r, baseOffset) {
@@ -683,6 +695,82 @@
         
         // Apply the same tilt as the second curve
         let tiltAngle = Math.PI / 6 - Math.PI / 72; // +27.5 degrees in radians (clockwise)
+        let centerX = this.cx;
+        let centerY = this.cy;
+        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
+        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
+        
+        path.push({ x: tiltedX, y: tiltedY, t });
+      }
+      
+      return path;
+    }
+    
+    generateLeftCurve1(ridgeIndex = 0) {
+      let path = [];
+      let points = this.pointsPerRidge;
+      
+      // Create a left-side curve to complement the under curves
+      let curveWidth = this.maxR * 1.6;  // Elongated
+      let curveDepth = this.maxR * 0.25;  // Stronger curvature
+      let baseX = this.cx - this.maxR * 0.7; // Move slightly left
+      let baseY = this.cy + this.maxR * 0.25; // Move slightly up
+      
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        
+        // Create a vertical curve on the left side
+        let x = baseX + Math.sin(t * Math.PI) * curveDepth; // Horizontal curve (convex away from arch)
+        let y = baseY - curveWidth * 0.5 + t * curveWidth + Math.sin(t * Math.PI) * curveDepth * 0.8 - (t * 0.3) * this.maxR; // Curve over top, trail down
+        
+        // Add parallel ridge spacing for thickness
+        let ridgeSpacing = 2.5;
+        x += (ridgeIndex - 1) * ridgeSpacing;
+        
+        // Add slight diagonal pull towards the arch
+        let diagonalPull = (t - 0.5) * this.maxR * 0.2;
+        x += diagonalPull;
+        
+        // Rotate to 2 o'clock position from top right
+        let tiltAngle = Math.PI / 3; // +60 degrees in radians (2 o'clock)
+        let centerX = this.cx;
+        let centerY = this.cy;
+        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
+        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
+        
+        path.push({ x: tiltedX, y: tiltedY, t });
+      }
+      
+      return path;
+    }
+    
+    generateLeftCurve2(ridgeIndex = 0) {
+      let path = [];
+      let points = this.pointsPerRidge;
+      
+      // Create a second, smaller left-side curve
+      let curveWidth = this.maxR * 1.4;  // Elongated
+      let curveDepth = this.maxR * 0.2;  // Stronger curvature
+      let baseX = this.cx - this.maxR * 0.8; // Move slightly left
+      let baseY = this.cy + this.maxR * 0.3; // Move slightly up
+      
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        
+        // Create a vertical curve on the left side
+        let x = baseX + Math.sin(t * Math.PI) * curveDepth; // Horizontal curve (convex away from arch)
+        let y = baseY - curveWidth * 0.5 + t * curveWidth + Math.sin(t * Math.PI) * curveDepth * 0.8 - (t * 0.25) * this.maxR; // Curve over top, trail down
+        
+        // Add parallel ridge spacing for thickness
+        let ridgeSpacing = 2.5;
+        x += (ridgeIndex - 1) * ridgeSpacing;
+        
+        // Add slight diagonal pull towards the arch
+        let diagonalPull = (t - 0.5) * this.maxR * 0.15;
+        x += diagonalPull;
+        
+        // Rotate to 2 o'clock position from top right
+        let tiltAngle = Math.PI / 3; // +60 degrees in radians (2 o'clock)
         let centerX = this.cx;
         let centerY = this.cy;
         let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
