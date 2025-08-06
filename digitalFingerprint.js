@@ -312,21 +312,92 @@
           }
         }
         
-        // Add fanning extensions to left terminal ends - make them very visible
-        if (r < this.ridges / 2 && theta > Math.PI * 1.5) { // Half the ridges, wider range
-          let extensionT = (theta - Math.PI * 1.5) / (Math.PI * 0.7); // 0 to 1 for extension
-          let fanAngle = Math.PI * 0.1 + extensionT * Math.PI * 0.8; // Fan outward and upward
-          let fanRadius = this.maxR * 0.8 * extensionT; // Much larger extension
+        // Add organized wig-like terminal trails that flow systematically around the loop
+        if (r < this.ridges * 0.6 && theta > Math.PI * 1.2 && theta < Math.PI * 1.9) { // Focused range for organized wig pattern
+          let trailT = (theta - Math.PI * 1.2) / (Math.PI * 0.7); // 0 to 1 for trail progression
           
-          // Create fanning extension
-          let fanX = x + fanRadius * Math.cos(fanAngle);
-          let fanY = y + fanRadius * Math.sin(fanAngle);
+          // Create systematic wig-like trails that follow the loop's curvature
+          let numWigStrands = 3; // Fewer, more organized strands like wig hair
+          for (let strandIndex = 0; strandIndex < numWigStrands; strandIndex++) {
+            // Calculate strand direction that follows the loop's natural curve
+            let loopTangent = Math.atan2(Math.sin(theta + 0.1) - Math.sin(theta - 0.1), 
+                                       Math.cos(theta + 0.1) - Math.cos(theta - 0.1)); // Loop tangent direction
+            let strandOffset = (strandIndex - 1) * Math.PI * 0.05; // Small systematic offset
+            let leftwardAdjustment = -Math.PI * 45 / 180; // 45 degrees to the left (counterclockwise)
+            let strandDirection = loopTangent + strandOffset + leftwardAdjustment; // Follow loop curve with leftward adjustment
+            
+            // Wig strands have consistent, organized lengths - made smaller
+            let baseLength = this.maxR * 0.3; // Reduced base length from 0.6 to 0.3
+            let lengthVariation = 1.0 + strandIndex * 0.05; // Reduced variation from 0.1 to 0.05
+            let strandLength = baseLength * lengthVariation * (0.6 + trailT * 0.3); // Reduced multipliers
+            
+            // Create multiple segments for each wig strand to follow the curve
+            for (let segment = 0; segment < 3; segment++) {
+              let segmentT = segment / 2.0; // 0, 0.5, 1.0 for three segments
+              let segmentLength = strandLength * (0.3 + segmentT * 0.7); // Progressive length
+              
+              // Calculate strand position following the loop's curvature
+              let strandX = x + segmentLength * Math.cos(strandDirection);
+              let strandY = y + segmentLength * Math.sin(strandDirection);
+              
+              // Add systematic wig-like curvature that follows the loop - made smaller
+              let wigCurve = segmentT * this.maxR * 0.05; // Reduced curve from 0.1 to 0.05
+              let curveDirection = strandDirection + Math.PI * 0.3; // Consistent curve direction
+              strandX += wigCurve * Math.cos(curveDirection);
+              strandY += wigCurve * Math.sin(curveDirection);
+              
+              // Add slight outward flow like wig hair - made smaller
+              let outwardFlow = segmentT * this.maxR * 0.04; // Reduced flow from 0.08 to 0.04
+              let flowDirection = Math.atan2(strandY - coreY, strandX - coreX); // Away from core
+              strandX += outwardFlow * Math.cos(flowDirection);
+              strandY += outwardFlow * Math.sin(flowDirection);
+              
+              // Apply tilt to wig strand
+              let strandTiltedX = centerX + (strandX - centerX) * Math.cos(tiltAngle) - (strandY - centerY) * Math.sin(tiltAngle);
+              let strandTiltedY = centerY + (strandX - centerX) * Math.sin(tiltAngle) + (strandY - centerY) * Math.cos(tiltAngle);
+              
+              path.push({x: strandTiltedX, y: strandTiltedY, t: 0.8 + trailT * 0.2}); // Consistent color flow
+            }
+          }
+        }
+        
+        // Add connecting ridges between main loop and terminal trails
+        if (r < this.ridges * 0.5 && theta > Math.PI * 1.2 && theta < Math.PI * 1.5) { // Connection zone
+          let connectT = (theta - Math.PI * 1.2) / (Math.PI * 0.3); // 0 to 1 for connection
+          let connectAngle = Math.PI * 1.0 + connectT * Math.PI * 0.3; // Smooth transition
+          let connectLength = this.maxR * 0.4 * (1 + connectT * 0.3); // Progressive length
           
-          // Apply same tilt to fanning extension
-          let fanTiltedX = centerX + (fanX - centerX) * Math.cos(tiltAngle) - (fanY - centerY) * Math.sin(tiltAngle);
-          let fanTiltedY = centerY + (fanX - centerX) * Math.sin(tiltAngle) + (fanY - centerY) * Math.cos(tiltAngle);
+          // Create connecting extension
+          let connectX = x + connectLength * Math.cos(connectAngle);
+          let connectY = y + connectLength * Math.sin(connectAngle);
           
-          path.push({x: fanTiltedX, y: fanTiltedY, t: 0.9 + extensionT * 0.1}); // Extend t parameter for color flow
+          // Apply tilt to connecting extension
+          let connectTiltedX = centerX + (connectX - centerX) * Math.cos(tiltAngle) - (connectY - centerY) * Math.sin(tiltAngle);
+          let connectTiltedY = centerY + (connectX - centerX) * Math.sin(tiltAngle) + (connectY - centerY) * Math.cos(tiltAngle);
+          
+          path.push({x: connectTiltedX, y: connectTiltedY, t: 0.8 + connectT * 0.1}); // Intermediate color
+        }
+        
+        // Add "wig" extensions from the top of the loop - flowing upward and outward
+        if (r < this.ridges / 2 && theta > Math.PI * 0.8 && theta < Math.PI * 1.2) { // Upper portion of loop
+          let wigT = (theta - Math.PI * 0.8) / (Math.PI * 0.4); // 0 to 1 for wig extension
+          let wigAngle = Math.PI * 1.8 + wigT * Math.PI * 0.6; // Flow upward and outward like hair
+          let wigRadius = this.maxR * 1.2 * wigT; // Substantial wig length
+          
+          // Create wig extension with natural flow
+          let wigX = x + wigRadius * Math.cos(wigAngle);
+          let wigY = y + wigRadius * Math.sin(wigAngle);
+          
+          // Add some natural variation to the wig strands
+          let wigVariation = Math.sin(wigT * Math.PI * 3 + r * 0.5) * this.maxR * 0.1;
+          wigX += wigVariation;
+          wigY += wigVariation * 0.5;
+          
+          // Apply same tilt to wig extension
+          let wigTiltedX = centerX + (wigX - centerX) * Math.cos(tiltAngle) - (wigY - centerY) * Math.sin(tiltAngle);
+          let wigTiltedY = centerY + (wigX - centerX) * Math.sin(tiltAngle) + (wigY - centerY) * Math.cos(tiltAngle);
+          
+          path.push({x: wigTiltedX, y: wigTiltedY, t: 0.8 + wigT * 0.2}); // Extend t parameter for color flow
         }
       }
       return path;
