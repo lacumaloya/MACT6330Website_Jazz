@@ -828,13 +828,56 @@
   class DoubleLoop extends DigitalFingerprint {
     generate() {
       this.ridgePaths = [];
-    
-    // Generate multiple parallel ridges that follow the same S-curve spine
-    for (let r = 0; r < this.ridges; r++) {
-      let ridgeOffset = (r - this.ridges / 2) * 4; // Tighter spacing for more ridges
-      this.ridgePaths.push(this.generatePath(r, ridgeOffset));
+      
+      // Create radial loop instances for inner loops
+      const leftRadial = new RadialLoop(this.canvas, this.ctx);
+      const rightRadial = new RadialLoop(this.canvas, this.ctx);
+      
+      // Configure radial loops for inner placement - smaller scale to fit within S-curve
+      leftRadial.maxR = this.maxR * 0.45; // Smaller scale for better core placement
+      rightRadial.maxR = this.maxR * 0.45;
+      leftRadial.ridges = 3; // Fewer ridges for tighter core
+      rightRadial.ridges = 3;
+      leftRadial.pointsPerRidge = this.pointsPerRidge;
+      rightRadial.pointsPerRidge = this.pointsPerRidge;
+      
+      // Generate radial loops
+      leftRadial.generate();
+      rightRadial.generate();
+      
+      // Position and transform radial loops - place in actual core areas
+      const leftCoreX = this.cx - this.maxR * 0.52; // Closer to center for left core
+      const leftCoreY = this.cy + this.maxR * 0.32; // Higher up for left core
+      const rightCoreX = this.cx + this.maxR * 0.52; // Closer to center for right core  
+      const rightCoreY = this.cy - this.maxR * 0.32; // Lower down for right core
+      
+      // Transform left radial loop - scale and position for left core
+      for (let r = 0; r < leftRadial.ridgePaths.length; r++) {
+        const transformedPath = leftRadial.ridgePaths[r].map(pt => ({
+          x: leftCoreX + (pt.x - leftRadial.cx) * 0.6, // Smaller scale for tighter core
+          y: leftCoreY + (pt.y - leftRadial.cy) * 0.6,
+          t: pt.t
+        }));
+        this.ridgePaths.push(transformedPath);
+      }
+      
+      // Transform right radial loop (mirrored) - scale and position for right core
+      for (let r = 0; r < rightRadial.ridgePaths.length; r++) {
+        const transformedPath = rightRadial.ridgePaths[r].map(pt => ({
+          x: rightCoreX - (pt.x - rightRadial.cx) * 0.6, // Mirror and smaller scale
+          y: rightCoreY + (pt.y - rightRadial.cy) * 0.6,
+          t: pt.t
+        }));
+        this.ridgePaths.push(transformedPath);
+      }
+      
+      // Generate outer S-curve ridges (remaining ridges) with gaps for radial cores
+      const outerRidges = this.ridges - (leftRadial.ridges + rightRadial.ridges);
+      for (let r = 0; r < outerRidges; r++) {
+        let ridgeOffset = (r - outerRidges / 2) * 4;
+        this.ridgePaths.push(this.generatePath(r, ridgeOffset));
+      }
     }
-  }
     
     draw(dotsDrawn, dotsPerFrame) {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -843,22 +886,44 @@
         let maxDots = dotsDrawn[r] || 0;
         
         // Use ridge-based colors like the whorl
-        let ridgeColor = r < this.ridges / 2 ? 
-          lerpColor(blue, purple, r / (this.ridges / 2)) : 
-          lerpColor(purple, pink, (r - this.ridges / 2) / (this.ridges / 2));
+        // Inner radial loops get their own color scheme
+        let ridgeColor;
+        if (r < 3) {
+          // Left radial loop - blue to purple
+          ridgeColor = lerpColor(blue, purple, r / 3);
+        } else if (r < 6) {
+          // Right radial loop - purple to pink  
+          ridgeColor = lerpColor(purple, pink, (r - 3) / 3);
+        } else {
+          // Outer S-curve ridges - blend across remaining ridges
+          let outerIndex = r - 6;
+          let outerRidges = this.ridgePaths.length - 6;
+          ridgeColor = outerIndex < outerRidges / 2 ? 
+            lerpColor(blue, purple, outerIndex / (outerRidges / 2)) : 
+            lerpColor(purple, pink, (outerIndex - outerRidges / 2) / (outerRidges / 2));
+        }
         
-                  for (let i = 0; i < maxDots && i < path.length; i++) {
-            let pt = path[i];
-            let fade = 1.0;
-            if (pt.t > 0.85) fade = Math.max(0, 1.0 - (pt.t - 0.85) * 4.5);
-            this.ctx.save();
-            this.ctx.globalAlpha = 0.85 * fade;
-            this.ctx.fillStyle = ridgeColor;
-            this.ctx.beginPath();
-            this.ctx.arc(pt.x, pt.y, 2.1 + 1.2 * Math.sin(r + i * 0.13), 0, Math.PI * 2);
-            this.ctx.fill();
-            this.ctx.restore();
-          }
+        for (let i = 0; i < maxDots && i < path.length; i++) {
+          let pt = path[i];
+          let fade = 1.0;
+          if (pt.t > 0.85) fade = Math.max(0, 1.0 - (pt.t - 0.85) * 4.5);
+          this.ctx.save();
+          // Slight alpha emphasis at the seam to crispen the interlock
+          const seamMaskDraw = Math.exp(-Math.pow((pt.t - 0.5) / 0.05, 2));
+          const alphaBoost = 1 + 0.12 * seamMaskDraw;
+          this.ctx.globalAlpha = Math.min(1, 0.85 * fade * alphaBoost);
+          this.ctx.fillStyle = ridgeColor;
+          this.ctx.beginPath();
+            // Slightly reduce dot size near cores and the seam to accentuate gaps/deltas
+            let halfProgress = pt.t < 0.5 ? (pt.t / 0.5) : ((pt.t - 0.5) / 0.5);
+            let seamMask = Math.exp(-Math.pow((pt.t - 0.5) / 0.05, 2));
+            let coreMask = 1 - Math.pow(Math.sin(halfProgress * Math.PI), 2); // high near ends/seam, low mid-arc
+            let baseSize = 2.1 + 1.2 * Math.sin(r + i * 0.13);
+            let size = baseSize * (1 - 0.15 * (0.6 * coreMask + 0.4 * seamMask));
+            this.ctx.arc(pt.x, pt.y, size, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.restore();
+        }
         if (maxDots < path.length) {
           dotsDrawn[r] = maxDots + dotsPerFrame;
         }
@@ -868,8 +933,9 @@
     generatePath(r, ridgeOffset) {
       let path = [];
       let points = this.pointsPerRidge;
-              let loopWidth = this.maxR * 1.25;
-        let loopHeight = this.maxR * 1.05;
+      // Slightly wider and flatter to emphasize a classic double-loop silhouette
+      let loopWidth = this.maxR * 1.35;
+      let loopHeight = this.maxR * 0.95;
       
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
@@ -885,8 +951,8 @@
           let smoothT = loopT * loopT * loopT * (10 - 15 * loopT + 6 * loopT * loopT); // Smootherstep function
           
           // Balanced core structure - left core
-          let startX = this.cx - loopWidth * 0.6;
-          let startY = this.cy + loopHeight * 0.42;
+          let startX = this.cx - loopWidth * 0.58; // nudge inward slightly
+          let startY = this.cy + loopHeight * 0.40; // small recenter for balance
           let endX = this.cx; // Meet in the center
           let endY = this.cy;
           
@@ -903,6 +969,19 @@
           let microCurve = Math.sin(loopT * Math.PI * 3) * 0.08;
           x += microCurve * loopWidth * 0.1;
           y += microCurve * loopHeight * 0.08;
+
+          // Create gap for radial core - pull away from core area
+          {
+            let coreX = this.cx - loopWidth * 0.52;
+            let coreY = this.cy + loopHeight * 0.32;
+            let toCoreX = x - coreX;
+            let toCoreY = y - coreY;
+            let dist = Math.sqrt(toCoreX * toCoreX + toCoreY * toCoreY) + 1e-6;
+            let coreInfluence = Math.exp(-Math.pow((loopT - 0.15) / 0.15, 2));
+            // Push away from core to create space for radial loop
+            x += (toCoreX / dist) * 15 * coreInfluence;
+            y += (toCoreY / dist) * 15 * coreInfluence;
+          }
           
           // Remove arc curvature to eliminate fish tail effect
           
@@ -927,7 +1006,7 @@
             y += ridgeVariation * loopHeight * 0.12;
           }
           
-
+          
         } else {
           // Right loop system - curves inward from right side with natural flow
           let loopT = (t - 0.5) * 2; // 0 to 1 for right loop
@@ -936,8 +1015,8 @@
           let smoothT = loopT * loopT * loopT * (10 - 15 * loopT + 6 * loopT * loopT); // Smootherstep function
           
           // Balanced core structure - right core
-          let startX = this.cx + loopWidth * 0.6;
-          let startY = this.cy - loopHeight * 0.42;
+          let startX = this.cx + loopWidth * 0.58; // nudge inward slightly
+          let startY = this.cy - loopHeight * 0.40; // small recenter for balance
           let endX = this.cx; // Meet in the center
           let endY = this.cy;
           
@@ -954,6 +1033,19 @@
           let microCurve = Math.sin(loopT * Math.PI * 3) * 0.08;
           x -= microCurve * loopWidth * 0.1;
           y -= microCurve * loopHeight * 0.08;
+
+          // Create gap for radial core - pull away from core area
+          {
+            let coreX = this.cx + loopWidth * 0.52;
+            let coreY = this.cy - loopHeight * 0.32;
+            let toCoreX = x - coreX;
+            let toCoreY = y - coreY;
+            let dist = Math.sqrt(toCoreX * toCoreX + toCoreY * toCoreY) + 1e-6;
+            let coreInfluence = Math.exp(-Math.pow((loopT - 0.15) / 0.15, 2));
+            // Push away from core to create space for radial loop
+            x += (toCoreX / dist) * 15 * coreInfluence;
+            y += (toCoreY / dist) * 15 * coreInfluence;
+          }
           
           // Remove arc curvature to eliminate fish tail effect
           
@@ -981,21 +1073,34 @@
 
         }
         
-        // Add ridge offset for parallel ridges - maximum spacing
+        // Add ridge offset for parallel ridges with adaptive spacing across each half-loop
         let ridgeSpacing = 12;
         let ridgeIndex = r - this.ridges / 2;
-        x += ridgeIndex * ridgeSpacing * 0.8;
-        y += ridgeIndex * ridgeSpacing * 0.6;
+        let halfProgress = t < 0.5 ? (t / 0.5) : ((t - 0.5) / 0.5); // 0→1 within each half
+        let spacingMask = 0.8 + 0.55 * Math.sin(halfProgress * Math.PI); // min at ends/seam, max mid-arc
+        x += ridgeIndex * ridgeSpacing * 0.8 * spacingMask;
+        y += ridgeIndex * ridgeSpacing * 0.6 * spacingMask;
         
         // Apply whorl-style texture with layered sine waves
         let flowX = Math.sin(t * Math.PI * 1.2 + r * 0.18) * 0.18 + Math.sin(t * Math.PI * 3.1 + r * 0.5) * 0.07;
         let flowY = Math.sin(t * Math.PI * 1.5 + r * 0.22) * 0.15 + Math.sin(t * Math.PI * 2.8 + r * 0.4) * 0.09;
+        // Dampen flow near cores; strongest in broad arcs within each half
+        let noiseMask = 0.35 + 0.65 * Math.sin(halfProgress * Math.PI); // 0.35 at ends/seam, 1 at mid-arc
+        flowX *= noiseMask;
+        flowY *= noiseMask;
         
         x += flowX * loopWidth * 0.3;
         y += flowY * loopHeight * 0.25;
+
+        // Central seam convergence and slight interleave for left/right ridges
+        let seamMask = Math.exp(-Math.pow((t - 0.5) / 0.05, 2)); // narrow band around seam
+        x += (this.cx - x) * 0.07 * seamMask; // mild pull toward center
+        y += (this.cy - y) * 0.035 * seamMask;
+        let interleave = ((r & 1) === 0 ? 1 : -1) * 4.5 * seamMask;
+        y += interleave;
         
-        // Rotate the entire pattern for better balance
-        let rotationAngle = -Math.PI / 2.2; // Slightly less than 90 degrees for better balance
+        // Rotate the entire pattern for better balance (~-65deg)
+        let rotationAngle = -Math.PI * (65 / 180);
         let centerX = this.cx;
         let centerY = this.cy;
         let rotatedX = centerX + (x - centerX) * Math.cos(rotationAngle) - (y - centerY) * Math.sin(rotationAngle);
