@@ -21,6 +21,12 @@
   }
   var blue = 0x00bfff, purple = 0x7c3aed, pink = 0xff69b4;
 
+  // Deterministic hash-based noise for stable per-dot variation (no flicker)
+  function hash2D(a, b) {
+    const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453123;
+    return s - Math.floor(s); // 0..1
+  }
+
   // --- Base Class ---
   class DigitalFingerprint {
     constructor(canvas, ctx) {
@@ -57,7 +63,7 @@
             color = pt.t < 0.5 ? lerpColor(blue, purple, pt.t * 2) : lerpColor(purple, pink, (pt.t - 0.5) * 2);
           }
           let fade = 1.0;
-          if (pt.t > 0.85) fade = Math.max(0, 1.0 - (pt.t - 0.85) * 4.5);
+          if (pt.t > 0.78) fade = Math.max(0, 1.0 - (pt.t - 0.78) * 5.0);
           let dotSize = 2.1 + 1.2 * Math.sin(r + i * 0.13);
           if (this.constructor.name === 'PlainArch' || this.constructor.name.includes('PlainArchVariation') || this.constructor.name === 'TentedArch') {
             let ridgeInArch = r % this.ridges;
@@ -405,6 +411,9 @@
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
+        // hard-trim 4% at both ends to clean caps
+        if (t < 0.04 || t > 0.96) continue;
+        
         // Base arch curve
         let x = this.cx - archWidth * 0.5 + t * archWidth;
         let y = this.cy + archHeight * (0.3 + archIndex * 0.4); // Much closer positioning
@@ -505,6 +514,9 @@
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
+        // hard-trim 4% at both ends to clean caps
+        if (t < 0.04 || t > 0.96) continue;
+        
         // Start with base horizontal line
         let x = this.cx - triangleWidth * 0.5 + t * triangleWidth;
         // Position arches progressively - centered as a group
@@ -594,6 +606,9 @@
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
+        // hard-trim 4% at both ends to clean caps
+        if (t < 0.04 || t > 0.96) continue;
+        
         // Create a smooth arc underneath, pulled northwest
         let x = this.cx - curveWidth * 0.5 + t * curveWidth;
         let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
@@ -637,6 +652,9 @@
       
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
+        
+        // hard-trim 4% at both ends to clean caps
+        if (t < 0.04 || t > 0.96) continue;
         
         // Create a smooth arc underneath, similar to first curve
         let x = this.cx - curveWidth * 0.5 + t * curveWidth;
@@ -682,6 +700,9 @@
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
+        // hard-trim 4% at both ends to clean caps
+        if (t < 0.04 || t > 0.96) continue;
+        
         // Create a smooth arc underneath, similar to other curves
         let x = this.cx - curveWidth * 0.5 + t * curveWidth;
         let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
@@ -720,6 +741,9 @@
       
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
+        
+        // hard-trim 4% at both ends to clean caps
+        if (t < 0.04 || t > 0.96) continue;
         
         // Create a smooth arc underneath, similar to other curves
         let x = this.cx - curveWidth * 0.5 + t * curveWidth;
@@ -761,6 +785,9 @@
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
+        // hard-trim 4% at both ends to clean caps
+        if (t < 0.04 || t > 0.96) continue;
+        
         // Create a vertical curve on the left side
         let x = baseX + Math.sin(t * Math.PI) * curveDepth; // Horizontal curve (convex away from arch)
         let y = baseY - curveWidth * 0.5 + t * curveWidth + Math.sin(t * Math.PI) * curveDepth * 0.8 - (t * 0.3) * this.maxR; // Curve over top, trail down
@@ -799,6 +826,9 @@
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
+        // hard-trim 4% at both ends to clean caps
+        if (t < 0.04 || t > 0.96) continue;
+        
         // Create a vertical curve on the left side
         let x = baseX + Math.sin(t * Math.PI) * curveDepth; // Horizontal curve (convex away from arch)
         let y = baseY - curveWidth * 0.5 + t * curveWidth + Math.sin(t * Math.PI) * curveDepth * 0.8 - (t * 0.25) * this.maxR; // Curve over top, trail down
@@ -827,51 +857,80 @@
 
   class DoubleLoop extends DigitalFingerprint {
     generate() {
+      console.log('DoubleLoop.generate() called!');
       this.ridgePaths = [];
       
       // Create radial loop instances for inner loops
       const leftRadial = new RadialLoop(this.canvas, this.ctx);
       const rightRadial = new RadialLoop(this.canvas, this.ctx);
       
-      // Configure radial loops for inner placement - smaller scale to fit within S-curve
-      leftRadial.maxR = this.maxR * 0.45; // Smaller scale for better core placement
-      rightRadial.maxR = this.maxR * 0.45;
-      leftRadial.ridges = 3; // Fewer ridges for tighter core
-      rightRadial.ridges = 3;
-      leftRadial.pointsPerRidge = this.pointsPerRidge;
-      rightRadial.pointsPerRidge = this.pointsPerRidge;
+      // Configure radial loops for inner placement
+      leftRadial.maxR = this.maxR * 0.65; // Scale down for inner placement
+      rightRadial.maxR = this.maxR * 0.65;
+      leftRadial.ridges = 4; // Fewer ridges for inner loops
+      rightRadial.ridges = 4;
+      // radial loops at 50% density of S-curve
+      leftRadial.pointsPerRidge = Math.max(10, Math.floor(this.pointsPerRidge * 0.5));
+      rightRadial.pointsPerRidge = Math.max(10, Math.floor(this.pointsPerRidge * 0.5));
       
       // Generate radial loops
       leftRadial.generate();
       rightRadial.generate();
       
-      // Position and transform radial loops - place in actual core areas
-      const leftCoreX = this.cx - this.maxR * 0.52; // Closer to center for left core
-      const leftCoreY = this.cy + this.maxR * 0.32; // Higher up for left core
-      const rightCoreX = this.cx + this.maxR * 0.52; // Closer to center for right core  
-      const rightCoreY = this.cy - this.maxR * 0.32; // Lower down for right core
+      // Position and transform radial loops
+      const leftCoreX = this.cx - this.maxR * 0.52; // Slightly closer to center
+      const leftCoreY = this.cy + this.maxR * 0.35; // Slightly higher
+      const rightCoreX = this.cx + this.maxR * 0.35; // Slightly to the left
+      const rightCoreY = this.cy + this.maxR * 0.25; // Y coordinate -1
       
-      // Transform left radial loop - scale and position for left core
+      // Apply northeastern movement to core positions - SIMPLIFIED APPROACH
+      const northeastOffsetX = this.maxR * 0.5; // DRAMATIC movement for testing
+      const northeastOffsetY = -this.maxR * 0.4; // DRAMATIC movement for testing
+      
+      // Move the core positions directly
+      const movedLeftCoreX = leftCoreX + northeastOffsetX;
+      const movedLeftCoreY = leftCoreY + northeastOffsetY;
+      const movedRightCoreX = rightCoreX - northeastOffsetX * 0.8; // Move southeast (opposite of northeast)
+      const movedRightCoreY = rightCoreY - northeastOffsetY * 0.8; // Move southeast (opposite of northeast)
+      
+      console.log('Northeastern movement applied:', northeastOffsetX, northeastOffsetY);
+      console.log('Left core moved from', leftCoreX, leftCoreY, 'to', movedLeftCoreX, movedLeftCoreY);
+      console.log('Right core moved from', rightCoreX, rightCoreY, 'to', movedRightCoreX, movedRightCoreY);
+      
+      // Transform left radial loop
       for (let r = 0; r < leftRadial.ridgePaths.length; r++) {
-        const transformedPath = leftRadial.ridgePaths[r].map(pt => ({
-          x: leftCoreX + (pt.x - leftRadial.cx) * 0.6, // Smaller scale for tighter core
-          y: leftCoreY + (pt.y - leftRadial.cy) * 0.6,
-          t: pt.t
-        }));
+        const transformedPath = leftRadial.ridgePaths[r]
+          .filter(pt => pt.t <= 0.95) // keep most of the core; light trim only
+          .map(pt => {
+          let x = movedLeftCoreX + (pt.x - leftRadial.cx) * 0.8;
+          let y = movedLeftCoreY + (pt.y - leftRadial.cy) * 0.8;
+          
+          return { x: x, y: y, t: pt.t, radial: true, side: 'L' };
+        });
         this.ridgePaths.push(transformedPath);
       }
       
-      // Transform right radial loop (mirrored) - scale and position for right core
+      // Transform right radial loop (mirrored)
       for (let r = 0; r < rightRadial.ridgePaths.length; r++) {
-        const transformedPath = rightRadial.ridgePaths[r].map(pt => ({
-          x: rightCoreX - (pt.x - rightRadial.cx) * 0.6, // Mirror and smaller scale
-          y: rightCoreY + (pt.y - rightRadial.cy) * 0.6,
-          t: pt.t
-        }));
+        const transformedPath = rightRadial.ridgePaths[r]
+          .filter(pt => pt.t <= 0.95) // keep most of the core; light trim only
+          .map(pt => {
+          let x = movedRightCoreX - (pt.x - rightRadial.cx) * 0.8; // Mirror horizontally
+          let y = movedRightCoreY + (pt.y - rightRadial.cy) * 0.8;
+          
+          // Apply counter-clockwise rotation specifically for right loop
+          let centerX = this.cx;
+          let centerY = this.cy;
+          let counterClockwiseRotation = -Math.PI * (90 / 180); // 90 degrees counter-clockwise
+          let rotatedX = centerX + (x - centerX) * Math.cos(counterClockwiseRotation) - (y - centerY) * Math.sin(counterClockwiseRotation);
+          let rotatedY = centerY + (x - centerX) * Math.sin(counterClockwiseRotation) + (y - centerY) * Math.cos(counterClockwiseRotation);
+          
+          return { x: rotatedX, y: rotatedY, t: pt.t, radial: true, side: 'R' };
+        });
         this.ridgePaths.push(transformedPath);
       }
       
-      // Generate outer S-curve ridges (remaining ridges) with gaps for radial cores
+      // Generate outer S-curve ridges (remaining ridges)
       const outerRidges = this.ridges - (leftRadial.ridges + rightRadial.ridges);
       for (let r = 0; r < outerRidges; r++) {
         let ridgeOffset = (r - outerRidges / 2) * 4;
@@ -888,16 +947,16 @@
         // Use ridge-based colors like the whorl
         // Inner radial loops get their own color scheme
         let ridgeColor;
-        if (r < 3) {
+        if (r < 4) {
           // Left radial loop - blue to purple
-          ridgeColor = lerpColor(blue, purple, r / 3);
-        } else if (r < 6) {
+          ridgeColor = lerpColor(blue, purple, r / 4);
+        } else if (r < 8) {
           // Right radial loop - purple to pink  
-          ridgeColor = lerpColor(purple, pink, (r - 3) / 3);
+          ridgeColor = lerpColor(purple, pink, (r - 4) / 4);
         } else {
           // Outer S-curve ridges - blend across remaining ridges
-          let outerIndex = r - 6;
-          let outerRidges = this.ridgePaths.length - 6;
+          let outerIndex = r - 8;
+          let outerRidges = this.ridgePaths.length - 8;
           ridgeColor = outerIndex < outerRidges / 2 ? 
             lerpColor(blue, purple, outerIndex / (outerRidges / 2)) : 
             lerpColor(purple, pink, (outerIndex - outerRidges / 2) / (outerRidges / 2));
@@ -906,7 +965,7 @@
         for (let i = 0; i < maxDots && i < path.length; i++) {
           let pt = path[i];
           let fade = 1.0;
-          if (pt.t > 0.85) fade = Math.max(0, 1.0 - (pt.t - 0.85) * 4.5);
+          if (pt.t > 0.78) fade = Math.max(0, 1.0 - (pt.t - 0.78) * 5.0);
           this.ctx.save();
           // Slight alpha emphasis at the seam to crispen the interlock
           const seamMaskDraw = Math.exp(-Math.pow((pt.t - 0.5) / 0.05, 2));
@@ -914,13 +973,67 @@
           this.ctx.globalAlpha = Math.min(1, 0.85 * fade * alphaBoost);
           this.ctx.fillStyle = ridgeColor;
           this.ctx.beginPath();
-            // Slightly reduce dot size near cores and the seam to accentuate gaps/deltas
+          
+          // If this point belongs to a radial loop, draw clean (no jitter), slightly smaller
+          if (pt.radial) {
             let halfProgress = pt.t < 0.5 ? (pt.t / 0.5) : ((pt.t - 0.5) / 0.5);
             let seamMask = Math.exp(-Math.pow((pt.t - 0.5) / 0.05, 2));
-            let coreMask = 1 - Math.pow(Math.sin(halfProgress * Math.PI), 2); // high near ends/seam, low mid-arc
+            let coreMask = 1 - Math.pow(Math.sin(halfProgress * Math.PI), 2);
+            // end taper
+            let edge = 0.18; let tIn = Math.min(1, Math.max(0, pt.t / edge)); let tOut = Math.min(1, Math.max(0, (1 - pt.t) / edge));
+            let tail = Math.min(tIn, tOut); let smooth = tail * tail * (3 - 2 * tail);
+            // stable noise for alpha/size (stronger)
+            let n = hash2D(i, r);
+            this.ctx.globalAlpha *= smooth * (0.8 + 0.4 * (n - 0.5));
             let baseSize = 2.1 + 1.2 * Math.sin(r + i * 0.13);
-            let size = baseSize * (1 - 0.15 * (0.6 * coreMask + 0.4 * seamMask));
+            // whorl-inspired size modulation (multi-frequency flow), solid-only (no position change)
+            let whorlMod = 1 + 0.10 * Math.sin(pt.t * Math.PI * 2.2 + r * 0.3) + 0.05 * Math.sin(pt.t * Math.PI * 4.1 + r * 0.5);
+            let size = baseSize * (1 - 0.15 * (0.6 * coreMask + 0.4 * seamMask)) * (0.7 + 0.3 * smooth) * (0.88 + 0.24 * n) * whorlMod;
+            
+            // Fractile reinforcement (radial): solid on-center overdraw to thicken ridge
+            if (i % 1 === 0) {
+              this.ctx.save();
+              // strong visible reinforcement
+              this.ctx.globalAlpha = 1.0;
+              this.ctx.beginPath(); this.ctx.arc(pt.x, pt.y, size * 1.15, 0, Math.PI * 2); this.ctx.fill();
+              this.ctx.restore();
+            }
+            this.ctx.beginPath();
             this.ctx.arc(pt.x, pt.y, size, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.restore();
+            continue;
+          }
+          // Default S-curve point draw with slight size modulation
+          let halfProgress = pt.t < 0.5 ? (pt.t / 0.5) : ((pt.t - 0.5) / 0.5);
+          let seamMask = Math.exp(-Math.pow((pt.t - 0.5) / 0.05, 2));
+          let coreMask = 1 - Math.pow(Math.sin(halfProgress * Math.PI), 2); // high near ends/seam, low mid-arc
+          // Smoothly taper ends and, if outer S-curve ridge, taper a bit more
+          let edge = 0.18; let tIn = Math.min(1, Math.max(0, pt.t / edge)); let tOut = Math.min(1, Math.max(0, (1 - pt.t) / edge));
+          let tail = Math.min(tIn, tOut); let smooth = tail * tail * (3 - 2 * tail);
+          let n2 = hash2D(i, r + 123.45);
+          let baseAlphaScale = smooth * (0.8 + 0.4 * (n2 - 0.5));
+          // extra softness for outermost ridges
+          if (r >= 8) {
+            let outerIndex = r - 8; let outerRidges = this.ridgePaths.length - 8;
+            let isEdge = (outerIndex === 0) || (outerIndex === outerRidges - 1);
+            if (isEdge) baseAlphaScale *= 0.8 + 0.2 * smooth;
+          }
+          this.ctx.globalAlpha *= baseAlphaScale;
+          let baseSize = 2.1 + 1.2 * Math.sin(r + i * 0.13);
+          // whorl-inspired size modulation (multi-frequency flow), solid-only (no position change)
+          let whorlMod2 = 1 + 0.10 * Math.sin(pt.t * Math.PI * 2.0 + r * 0.25) + 0.05 * Math.sin(pt.t * Math.PI * 3.6 + r * 0.45);
+          let size = baseSize * (1 - 0.15 * (0.6 * coreMask + 0.4 * seamMask)) * (0.7 + 0.3 * baseAlphaScale) * (0.88 + 0.24 * n2) * whorlMod2;
+          
+          // Reinforcement on S-curve: solid on-center overdraw (denser)
+          if (i % 2 === 0) {
+            this.ctx.save();
+            this.ctx.globalAlpha = Math.min(1, baseAlphaScale);
+            this.ctx.beginPath(); this.ctx.arc(pt.x, pt.y, size * 1.08, 0, Math.PI * 2); this.ctx.fill();
+            this.ctx.restore();
+          }
+          this.ctx.beginPath();
+          this.ctx.arc(pt.x, pt.y, size, 0, Math.PI * 2);
           this.ctx.fill();
           this.ctx.restore();
         }
@@ -939,6 +1052,9 @@
       
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
+        
+        // trim 10% at both ends to clean caps but preserve content
+        if (t < 0.10 || t > 0.90) continue;
         
         // Create the true double loop structure - two separate loop systems
         let x, y;
@@ -970,17 +1086,16 @@
           x += microCurve * loopWidth * 0.1;
           y += microCurve * loopHeight * 0.08;
 
-          // Create gap for radial core - pull away from core area
+          // Local delta (negative space) near the left core via gentle radial repulsion
           {
             let coreX = this.cx - loopWidth * 0.52;
-            let coreY = this.cy + loopHeight * 0.32;
+            let coreY = this.cy + loopHeight * 0.36;
             let toCoreX = x - coreX;
             let toCoreY = y - coreY;
             let dist = Math.sqrt(toCoreX * toCoreX + toCoreY * toCoreY) + 1e-6;
-            let coreInfluence = Math.exp(-Math.pow((loopT - 0.15) / 0.15, 2));
-            // Push away from core to create space for radial loop
-            x += (toCoreX / dist) * 15 * coreInfluence;
-            y += (toCoreY / dist) * 15 * coreInfluence;
+            let coreInfluence = Math.exp(-Math.pow((loopT - 0.18) / 0.18, 2));
+            x += (toCoreX / dist) * 10 * coreInfluence;
+            y += (toCoreY / dist) * 10 * coreInfluence;
           }
           
           // Remove arc curvature to eliminate fish tail effect
@@ -1034,17 +1149,16 @@
           x -= microCurve * loopWidth * 0.1;
           y -= microCurve * loopHeight * 0.08;
 
-          // Create gap for radial core - pull away from core area
+          // Local delta (negative space) near the right core via gentle radial repulsion
           {
             let coreX = this.cx + loopWidth * 0.52;
-            let coreY = this.cy - loopHeight * 0.32;
+            let coreY = this.cy - loopHeight * 0.36;
             let toCoreX = x - coreX;
             let toCoreY = y - coreY;
             let dist = Math.sqrt(toCoreX * toCoreX + toCoreY * toCoreY) + 1e-6;
-            let coreInfluence = Math.exp(-Math.pow((loopT - 0.15) / 0.15, 2));
-            // Push away from core to create space for radial loop
-            x += (toCoreX / dist) * 15 * coreInfluence;
-            y += (toCoreY / dist) * 15 * coreInfluence;
+            let coreInfluence = Math.exp(-Math.pow((loopT - 0.18) / 0.18, 2));
+            x += (toCoreX / dist) * 10 * coreInfluence;
+            y += (toCoreY / dist) * 10 * coreInfluence;
           }
           
           // Remove arc curvature to eliminate fish tail effect
@@ -1077,26 +1191,50 @@
         let ridgeSpacing = 12;
         let ridgeIndex = r - this.ridges / 2;
         let halfProgress = t < 0.5 ? (t / 0.5) : ((t - 0.5) / 0.5); // 0→1 within each half
-        let spacingMask = 0.8 + 0.55 * Math.sin(halfProgress * Math.PI); // min at ends/seam, max mid-arc
+        let spacingMid = Math.sin(halfProgress * Math.PI);
+        let spacingMask = 0.8 + 0.55 * Math.pow(spacingMid, 2.2); // much sharper mid emphasis
         x += ridgeIndex * ridgeSpacing * 0.8 * spacingMask;
         y += ridgeIndex * ridgeSpacing * 0.6 * spacingMask;
+        
+        // Additional suppression near very ends
+        let tailTrim = Math.min(t / 0.15, (1 - t) / 0.15); // 0..1 within trimmed zones
+        spacingMask *= Math.max(0, Math.min(1, tailTrim));
         
         // Apply whorl-style texture with layered sine waves
         let flowX = Math.sin(t * Math.PI * 1.2 + r * 0.18) * 0.18 + Math.sin(t * Math.PI * 3.1 + r * 0.5) * 0.07;
         let flowY = Math.sin(t * Math.PI * 1.5 + r * 0.22) * 0.15 + Math.sin(t * Math.PI * 2.8 + r * 0.4) * 0.09;
-        // Dampen flow near cores; strongest in broad arcs within each half
-        let noiseMask = 0.35 + 0.65 * Math.sin(halfProgress * Math.PI); // 0.35 at ends/seam, 1 at mid-arc
+        // Dampen flow near cores; strongest in broad arcs within each half (even stronger damping at ends)
+        let noiseMask = 0.18 + 0.82 * Math.sin(halfProgress * Math.PI);
+        noiseMask *= Math.max(0, Math.min(1, tailTrim));
         flowX *= noiseMask;
         flowY *= noiseMask;
         
         x += flowX * loopWidth * 0.3;
         y += flowY * loopHeight * 0.25;
 
+        // Pouch shaping: bend outer ends inward and downward to form a cup
+        if (t < 0.22 || t > 0.78) {
+          let edgeSpan = 0.22; // end window
+          let endT = t < 0.5 ? (edgeSpan - Math.min(edgeSpan, t)) / edgeSpan : (Math.min(1 - t, edgeSpan)) / edgeSpan;
+          // smootherstep falloff
+          let endSmooth = Math.max(0, Math.min(1, endT));
+          endSmooth = endSmooth * endSmooth * (3 - 2 * endSmooth);
+          // Stronger on the outermost ridges (approximate: outerRidges = this.ridges - 8)
+          let outerRidges = Math.max(1, this.ridges - 8);
+          let edgeBoost = (r === 0 || r === outerRidges - 1) ? 1.0 : (r === 1 || r === outerRidges - 2 ? 0.6 : 0.35);
+          // Target cup center below
+          let pouchCx = this.cx;
+          let pouchCy = this.cy + this.maxR * 0.55;
+          // Pull toward center and downward to cup
+          x += (pouchCx - x) * 0.45 * endSmooth * edgeBoost;
+          y += (pouchCy - y) * 0.60 * endSmooth * edgeBoost;
+        }
+
         // Central seam convergence and slight interleave for left/right ridges
-        let seamMask = Math.exp(-Math.pow((t - 0.5) / 0.05, 2)); // narrow band around seam
+        let seamMask = Math.exp(-Math.pow((t - 0.5) / 0.05, 2)); // slightly tighter band
         x += (this.cx - x) * 0.07 * seamMask; // mild pull toward center
         y += (this.cy - y) * 0.035 * seamMask;
-        let interleave = ((r & 1) === 0 ? 1 : -1) * 4.5 * seamMask;
+        let interleave = ((r & 1) === 0 ? 1 : -1) * 4.5 * seamMask; // softer interleave
         y += interleave;
         
         // Rotate the entire pattern for better balance (~-65deg)
@@ -1106,7 +1244,14 @@
         let rotatedX = centerX + (x - centerX) * Math.cos(rotationAngle) - (y - centerY) * Math.sin(rotationAngle);
         let rotatedY = centerY + (x - centerX) * Math.sin(rotationAngle) + (y - centerY) * Math.cos(rotationAngle);
         
-        path.push({ x: rotatedX, y: rotatedY, t });
+        // Apply slight northeastern movement and clockwise rotation
+        let finalRotation = Math.PI * (5 / 180); // 5 degrees clockwise
+        let northeastX = rotatedX + this.maxR * 0.5; // DRAMATIC northeastern movement for testing
+        let northeastY = rotatedY - this.maxR * 0.4;
+        let finalX = centerX + (northeastX - centerX) * Math.cos(finalRotation) - (northeastY - centerY) * Math.sin(finalRotation);
+        let finalY = centerY + (northeastX - centerX) * Math.sin(finalRotation) + (northeastY - centerY) * Math.cos(finalRotation);
+        
+        path.push({ x: finalX, y: finalY, t });
       }
       
       return path;
@@ -1241,13 +1386,14 @@
       console.log('Using PlainArchVariation', plainArchCount);
     } else {
     fingerprint = new types[currentType](canvas, ctx);
-      console.log('Using', types[currentType].name);
+      console.log('Using', types[currentType].name, 'at index', currentType);
     }
     
     // Set density for double loop
     if (fingerprint instanceof DoubleLoop) {
+      console.log('DoubleLoop detected! Setting density...');
       fingerprint.ridges = 15;
-      fingerprint.pointsPerRidge = 120;
+      fingerprint.pointsPerRidge = 120; // keep S-curve at 100%
     } else if (fingerprint instanceof RadialLoop) {
       fingerprint.ridges = 15; // Same as whorl for proper aeration
       fingerprint.pointsPerRidge = 50; // Same as whorl for proper spacing
