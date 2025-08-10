@@ -865,10 +865,10 @@
       const rightRadial = new RadialLoop(this.canvas, this.ctx);
       
       // Configure radial loops for inner placement
-      leftRadial.maxR = this.maxR * 0.65; // Scale down for inner placement
-      rightRadial.maxR = this.maxR * 0.65;
-      leftRadial.ridges = 4; // Fewer ridges for inner loops
-      rightRadial.ridges = 4;
+      leftRadial.maxR = this.maxR * 0.74; // Larger for fuller coverage
+      rightRadial.maxR = this.maxR * 0.74;
+      leftRadial.ridges = 6; // More ridges for fill
+      rightRadial.ridges = 6;
       // radial loops at 50% density of S-curve
       leftRadial.pointsPerRidge = Math.max(10, Math.floor(this.pointsPerRidge * 0.5));
       rightRadial.pointsPerRidge = Math.max(10, Math.floor(this.pointsPerRidge * 0.5));
@@ -878,19 +878,19 @@
       rightRadial.generate();
       
       // Position and transform radial loops
-      const leftCoreX = this.cx - this.maxR * 0.52; // Slightly closer to center
-      const leftCoreY = this.cy + this.maxR * 0.35; // Slightly higher
-      const rightCoreX = this.cx + this.maxR * 0.35; // Slightly to the left
-      const rightCoreY = this.cy + this.maxR * 0.25; // Y coordinate -1
+      const leftCoreX = this.cx - this.maxR * 0.44; // Closer for grazing
+      const leftCoreY = this.cy + this.maxR * 0.30;
+      const rightCoreX = this.cx + this.maxR * 0.44;
+      const rightCoreY = this.cy + this.maxR * 0.30;
       
       // Apply northeastern movement to core positions - SIMPLIFIED APPROACH
-      const northeastOffsetX = this.maxR * 0.5; // DRAMATIC movement for testing
-      const northeastOffsetY = -this.maxR * 0.4; // DRAMATIC movement for testing
+      const northeastOffsetX = this.maxR * 0.08; // subtle NE shift
+      const northeastOffsetY = -this.maxR * 0.06; // subtle NE lift
       
       // Move the core positions directly
-      const movedLeftCoreX = leftCoreX + northeastOffsetX;
+      const movedLeftCoreX = (leftCoreX + this.maxR * 0.03) + northeastOffsetX; // extra inward
       const movedLeftCoreY = leftCoreY + northeastOffsetY;
-      const movedRightCoreX = rightCoreX - northeastOffsetX * 0.8; // Move southeast (opposite of northeast)
+      const movedRightCoreX = (rightCoreX - this.maxR * 0.03) - northeastOffsetX * 0.8; // extra inward
       const movedRightCoreY = rightCoreY - northeastOffsetY * 0.8; // Move southeast (opposite of northeast)
       
       console.log('Northeastern movement applied:', northeastOffsetX, northeastOffsetY);
@@ -905,7 +905,13 @@
           let x = movedLeftCoreX + (pt.x - leftRadial.cx) * 0.8;
           let y = movedLeftCoreY + (pt.y - leftRadial.cy) * 0.8;
           
-          return { x: x, y: y, t: pt.t, radial: true, side: 'L' };
+          // Small clockwise rotation towards the seam (~+6°)
+          let centerX = this.cx, centerY = this.cy;
+          let seamRot = Math.PI * (6 / 180);
+          let rx = centerX + (x - centerX) * Math.cos(seamRot) - (y - centerY) * Math.sin(seamRot);
+          let ry = centerY + (x - centerX) * Math.sin(seamRot) + (y - centerY) * Math.cos(seamRot);
+            
+          return { x: rx, y: ry, t: pt.t, radial: true, side: 'L' };
         });
         this.ridgePaths.push(transformedPath);
       }
@@ -924,18 +930,19 @@
           let counterClockwiseRotation = -Math.PI * (90 / 180); // 90 degrees counter-clockwise
           let rotatedX = centerX + (x - centerX) * Math.cos(counterClockwiseRotation) - (y - centerY) * Math.sin(counterClockwiseRotation);
           let rotatedY = centerY + (x - centerX) * Math.sin(counterClockwiseRotation) + (y - centerY) * Math.cos(counterClockwiseRotation);
+          // Small counter-rotation towards the seam (~-6°)
+          let seamRot = -Math.PI * (6 / 180);
+          let rx = centerX + (rotatedX - centerX) * Math.cos(seamRot) - (rotatedY - centerY) * Math.sin(seamRot);
+          let ry = centerY + (rotatedX - centerX) * Math.sin(seamRot) + (rotatedY - centerY) * Math.cos(seamRot);
           
-          return { x: rotatedX, y: rotatedY, t: pt.t, radial: true, side: 'R' };
+          return { x: rx, y: ry, t: pt.t, radial: true, side: 'R' };
         });
         this.ridgePaths.push(transformedPath);
       }
       
       // Generate outer S-curve ridges (remaining ridges)
-      const outerRidges = this.ridges - (leftRadial.ridges + rightRadial.ridges);
-      for (let r = 0; r < outerRidges; r++) {
-        let ridgeOffset = (r - outerRidges / 2) * 4;
-        this.ridgePaths.push(this.generatePath(r, ridgeOffset));
-      }
+      const outerRidges = 0; // kill S-curve: no additional ridges
+      // no S-curve paths pushed
     }
     
     draw(dotsDrawn, dotsPerFrame) {
@@ -954,12 +961,8 @@
           // Right radial loop - purple to pink  
           ridgeColor = lerpColor(purple, pink, (r - 4) / 4);
         } else {
-          // Outer S-curve ridges - blend across remaining ridges
-          let outerIndex = r - 8;
-          let outerRidges = this.ridgePaths.length - 8;
-          ridgeColor = outerIndex < outerRidges / 2 ? 
-            lerpColor(blue, purple, outerIndex / (outerRidges / 2)) : 
-            lerpColor(purple, pink, (outerIndex - outerRidges / 2) / (outerRidges / 2));
+          // No S-curve: fall back to right radial coloring for any residual ranges
+          ridgeColor = lerpColor(purple, pink, Math.min(1, (r - 4) / Math.max(1, (this.ridgePaths.length - 4))));
         }
         
         for (let i = 0; i < maxDots && i < path.length; i++) {
@@ -1025,11 +1028,22 @@
           let whorlMod2 = 1 + 0.10 * Math.sin(pt.t * Math.PI * 2.0 + r * 0.25) + 0.05 * Math.sin(pt.t * Math.PI * 3.6 + r * 0.45);
           let size = baseSize * (1 - 0.15 * (0.6 * coreMask + 0.4 * seamMask)) * (0.7 + 0.3 * baseAlphaScale) * (0.88 + 0.24 * n2) * whorlMod2;
           
-          // Reinforcement on S-curve: solid on-center overdraw (denser)
-          if (i % 2 === 0) {
+          // Targeted 'arm claw' fade: only S-curve ridges (r >= 8) and very early t
+          if (r >= 8 && pt.t < 0.22) {
+            let armIn = Math.min(1, pt.t / 0.22);
+            let armSmooth = armIn * armIn * (3 - 2 * armIn);
+            this.ctx.globalAlpha *= armSmooth;
+            size *= (0.7 + 0.3 * armSmooth);
+          }
+          
+          // Sparkle micro-bubbles (S-curve): sparser, scaled by taper
+          if (((i + r) % 3) === 0) {
             this.ctx.save();
-            this.ctx.globalAlpha = Math.min(1, baseAlphaScale);
-            this.ctx.beginPath(); this.ctx.arc(pt.x, pt.y, size * 1.08, 0, Math.PI * 2); this.ctx.fill();
+            let a1 = hash2D(i + 7.77, r + 6.66) * Math.PI * 2;
+            let rad1 = 2.6 + 1.8 * hash2D(i + 2.2, r + 4.4);
+            let s1 = Math.max(0.45, size * (0.30 + 0.20 * hash2D(i + 9.1, r + 3.3)));
+            this.ctx.globalAlpha *= 0.5 * baseAlphaScale;
+            this.ctx.beginPath(); this.ctx.arc(pt.x + Math.cos(a1) * rad1, pt.y + Math.sin(a1) * rad1, s1, 0, Math.PI * 2); this.ctx.fill();
             this.ctx.restore();
           }
           this.ctx.beginPath();
@@ -1053,8 +1067,8 @@
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
         
-        // trim 10% at both ends to clean caps but preserve content
-        if (t < 0.10 || t > 0.90) continue;
+        // remove most of the top (start) tail; keep bottom end intact
+        if (t < 0.12) continue;
         
         // Create the true double loop structure - two separate loop systems
         let x, y;
@@ -1251,6 +1265,8 @@
         let finalX = centerX + (northeastX - centerX) * Math.cos(finalRotation) - (northeastY - centerY) * Math.sin(finalRotation);
         let finalY = centerY + (northeastX - centerX) * Math.sin(finalRotation) + (northeastY - centerY) * Math.cos(finalRotation);
         
+        // No additional screen-space clipping; preserve S-curve body
+         
         path.push({ x: finalX, y: finalY, t });
       }
       
