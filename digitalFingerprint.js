@@ -878,20 +878,20 @@
       rightRadial.generate();
       
       // Position and transform radial loops
-      const leftCoreX = this.cx - this.maxR * 0.44; // Closer for grazing
-      const leftCoreY = this.cy + this.maxR * 0.30;
-      const rightCoreX = this.cx + this.maxR * 0.44;
-      const rightCoreY = this.cy + this.maxR * 0.30;
+      const leftCoreX = this.cx - this.maxR * 0.25;
+      const leftCoreY = this.cy + this.maxR * 0.82;
+      const rightCoreX = this.cx + this.maxR * 0.25;
+      const rightCoreY = this.cy - this.maxR * 0.10; // move further north by one step
       
       // Apply northeastern movement to core positions - SIMPLIFIED APPROACH
       const northeastOffsetX = this.maxR * 0.08; // subtle NE shift
       const northeastOffsetY = -this.maxR * 0.06; // subtle NE lift
       
       // Move the core positions directly
-      const movedLeftCoreX = (leftCoreX + this.maxR * 0.03) + northeastOffsetX; // extra inward
+      const movedLeftCoreX = leftCoreX + northeastOffsetX;
       const movedLeftCoreY = leftCoreY + northeastOffsetY;
-      const movedRightCoreX = (rightCoreX - this.maxR * 0.03) - northeastOffsetX * 0.8; // extra inward
-      const movedRightCoreY = rightCoreY - northeastOffsetY * 0.8; // Move southeast (opposite of northeast)
+      const movedRightCoreX = rightCoreX;
+      const movedRightCoreY = rightCoreY;
       
       console.log('Northeastern movement applied:', northeastOffsetX, northeastOffsetY);
       console.log('Left core moved from', leftCoreX, leftCoreY, 'to', movedLeftCoreX, movedLeftCoreY);
@@ -922,7 +922,7 @@
           .filter(pt => pt.t <= 0.95) // keep most of the core; light trim only
           .map(pt => {
           let x = movedRightCoreX - (pt.x - rightRadial.cx) * 0.8; // Mirror horizontally
-          let y = movedRightCoreY + (pt.y - rightRadial.cy) * 0.8;
+          let y = movedRightCoreY + (pt.y - rightRadial.cy) * 0.8; // Restore original vertical orientation
           
           // Apply counter-clockwise rotation specifically for right loop
           let centerX = this.cx;
@@ -930,8 +930,10 @@
           let counterClockwiseRotation = -Math.PI * (90 / 180); // 90 degrees counter-clockwise
           let rotatedX = centerX + (x - centerX) * Math.cos(counterClockwiseRotation) - (y - centerY) * Math.sin(counterClockwiseRotation);
           let rotatedY = centerY + (x - centerX) * Math.sin(counterClockwiseRotation) + (y - centerY) * Math.cos(counterClockwiseRotation);
-          // Small counter-rotation towards the seam (~-6°)
-          let seamRot = -Math.PI * (6 / 180);
+          
+          // Opposing tilt for yin–yang: right ~ +12°
+          // Match blue loop tilt (−12°)
+          let seamRot = -Math.PI * (12 / 180);
           let rx = centerX + (rotatedX - centerX) * Math.cos(seamRot) - (rotatedY - centerY) * Math.sin(seamRot);
           let ry = centerY + (rotatedX - centerX) * Math.sin(seamRot) + (rotatedY - centerY) * Math.cos(seamRot);
           
