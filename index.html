@@ -57,6 +57,15 @@
         <div class="footer-copy">Lloryn Galatas tm2025</div>
     </footer>
     <script src="arrowheadCursor.js"></script>
-    <script src="digitalFingerprint.js"></script>
+    <script src="digitalFingerprints/digitalFingerprint.js"></script>
+    <script src="digitalFingerprints/whorl.js"></script>
+    <script src="digitalFingerprints/radialLoop.js"></script>
+    <script src="digitalFingerprints/plainArch.js"></script>
+    <script src="digitalFingerprints/tentedArch.js"></script>
+    <script src="digitalFingerprints/doubleLoop.js"></script>
+    <script>
+        // Defer init until subclasses are loaded
+        if (window.initFingerprint) window.initFingerprint();
+    </script>
 </body>
 </html> 

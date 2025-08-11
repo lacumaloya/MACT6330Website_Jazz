@@ -52,7 +52,14 @@ function draw() {
   if (cursorTrail.length > TRAIL_LENGTH) cursorTrail.shift();
   // --- Draw phantom trail ---
   for (let i = 0; i < cursorTrail.length - 1; i++) {
-    let alpha = map(i, 0, cursorTrail.length - 1, 30, 120); // Faded
+    // Avoid p5.map to prevent potential conflicts; compute linearly
+    let alpha;
+    if (cursorTrail.length > 1) {
+      let t = i / (cursorTrail.length - 1);
+      alpha = 30 + t * (120 - 30);
+    } else {
+      alpha = 120;
+    }
     drawArrowheadCursor(cursorTrail[i].x, cursorTrail[i].y, 15, alpha / 255);
   }
   // --- Draw main cursor ---
