@@ -1,406 +1,461 @@
 class TentedArch extends window.DigitalFingerprint {
+  // Constants for cleaner, more maintainable code
+  static get CONSTANTS() {
+    return {
+      ARCH_COUNT: 3,
+      ARCH_SPACING: 35,
+      SIZE_MULTIPLIERS: [1.0, 0.85, 0.70], // Progressive size reduction
+      BASE_SPACING: 2.8,
+      TRIANGLE_WIDTH_MULTIPLIER: 1.6,
+      TRIANGLE_HEIGHT_MULTIPLIER: 0.8,
+      RIDGE_SPACING: 2.5,
+      TILT_ANGLE: Math.PI / 18, // 10 degrees
+      UNDER_CURVE_COUNT: 4,
+      LEFT_CURVE_COUNT: 2,
+      // Additional constants for generatePath
+      ARCH_CURVE_MULTIPLIER: 0.6,
+      CENTER_SPIKE_ZONE_START: 0.3,
+      CENTER_SPIKE_ZONE_END: 0.7,
+      CENTER_SPIKE_MULTIPLIER: 0.6,
+      CONVERGENCE_FACTOR: 0.1,
+      NATURAL_FLOW_AMPLITUDE: 0.5,
+      NATURAL_FLOW_FREQUENCY: 0.3,
+      HILLS_AMPLITUDE: 12.0,
+      HILLS_FREQUENCY: 3,
+      // Hard trim constants
+      HARD_TRIM_START: 0.04,
+      HARD_TRIM_END: 0.96,
+      // Position and sizing constants
+      BASE_POSITION_X_OFFSET: 0.5,
+      BASE_POSITION_Y_OFFSET: 0.3,
+      // Natural flow constants
+      NATURAL_FLOW_SECONDARY_AMPLITUDE: 0.4,
+      NATURAL_FLOW_SECONDARY_FREQUENCY: 0.7,
+      NATURAL_FLOW_Y_MULTIPLIER: 0.3,
+      // Under curve constants
+      UNDER_CURVE_NORTHWEST_PULL: 0.05,
+      UNDER_CURVE_RIDGE_COUNT: 3,
+      // Left curve constants
+      LEFT_CURVE_TILT_ANGLE: Math.PI / 3, // 60 degrees
+      LEFT_CURVE_DEPTH_MULTIPLIER: 0.8,
+      // Natural variation constants
+      PRIMARY_FLOW_FREQUENCY_MULTIPLIER: 2,
+      SECONDARY_FLOW_FREQUENCY_MULTIPLIER: 4,
+      HILLS_FREQUENCY_MULTIPLIER: 3,
+      // Perpendicular vector optimization
+      MIN_PERP_LENGTH_SQUARED: 0.0001
+    };
+  }
+
     generate() {
       this.ridgePaths = [];
-      // Create 3 progressively smaller tented arches in sequence
-      console.log('Generating TentedArch with', this.ridges * 3, 'ridges (3 progressively smaller tented arches)');
-      for (let r = 0; r < this.ridges * 3; r++) {
-        let path = this.generatePath(r, 0);
-        console.log('Ridge', r, 'has', path.length, 'points');
+    const { ARCH_COUNT, UNDER_CURVE_COUNT, LEFT_CURVE_COUNT } = TentedArch.CONSTANTS;
+    
+    console.log(`Generating TentedArch with ${this.ridges * ARCH_COUNT} ridges (${ARCH_COUNT} progressively smaller tented arches)`);
+    
+    // Generate main tented arches
+    this.generateMainArches();
+    
+    // Generate supporting curves
+    this.generateUnderCurves();
+    this.generateLeftCurves();
+  }
+
+  generateMainArches() {
+    const { ARCH_COUNT } = TentedArch.CONSTANTS;
+    
+    for (let r = 0; r < this.ridges * ARCH_COUNT; r++) {
+      // Calculate baseOffset for proper color layering (same as parent class)
+      let baseOffset = (r / this.ridges) * (this.maxR - 10) + 10;
+      let path = this.generatePath(r, baseOffset);
+      console.log(`Ridge ${r} has ${path.length} points`);
         this.ridgePaths.push(path);
       }
-      
-      // Add multiple parallel ridges for the first curve to give it more girth
-      for (let ridgeIndex = 0; ridgeIndex < 3; ridgeIndex++) {
-        let underCurve = this.generateUnderCurve(ridgeIndex);
+  }
+
+  generateUnderCurves() {
+    const { UNDER_CURVE_COUNT, UNDER_CURVE_RIDGE_COUNT } = TentedArch.CONSTANTS;
+    
+    // Generate multiple parallel ridges for each under curve
+    for (let curveIndex = 0; curveIndex < UNDER_CURVE_COUNT; curveIndex++) {
+      for (let ridgeIndex = 0; ridgeIndex < UNDER_CURVE_RIDGE_COUNT; ridgeIndex++) {
+        let underCurve = this.generateUnderCurve(curveIndex, ridgeIndex);
         this.ridgePaths.push(underCurve);
       }
-      // Add multiple parallel ridges for the second curve to match the first curve's thickness
-      for (let ridgeIndex = 0; ridgeIndex < 3; ridgeIndex++) {
-        let underCurve2 = this.generateUnderCurve2(ridgeIndex);
-        this.ridgePaths.push(underCurve2);
+    }
+  }
+
+  generateLeftCurves() {
+    const { LEFT_CURVE_COUNT, UNDER_CURVE_RIDGE_COUNT } = TentedArch.CONSTANTS;
+    
+    // Generate multiple parallel ridges for each left curve
+    for (let curveIndex = 0; curveIndex < LEFT_CURVE_COUNT; curveIndex++) {
+      for (let ridgeIndex = 0; ridgeIndex < UNDER_CURVE_RIDGE_COUNT; ridgeIndex++) {
+        let leftCurve = this.generateLeftCurve(curveIndex, ridgeIndex);
+        this.ridgePaths.push(leftCurve);
       }
-      let underCurve3 = this.generateUnderCurve3();
-      this.ridgePaths.push(underCurve3);
-      let underCurve4 = this.generateUnderCurve4();
-      this.ridgePaths.push(underCurve4);
+    }
+  }
+
+  // Override the draw method to handle custom color layering for 3-arch structure
+  draw(dotsDrawn, dotsPerFrame) {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    const { ARCH_COUNT } = TentedArch.CONSTANTS;
+    
+    for (let r = 0; r < this.ridgePaths.length; r++) {
+      let path = this.ridgePaths[r];
+      let maxDots = dotsDrawn[r] || 0;
       
-                   // Add left-side curves to complement the under curves
-             // Add multiple parallel ridges for the first left curve to give it more thickness
-             for (let ridgeIndex = 0; ridgeIndex < 3; ridgeIndex++) {
-               let leftCurve1 = this.generateLeftCurve1(ridgeIndex);
-               this.ridgePaths.push(leftCurve1);
+      for (let i = 0; i < maxDots && i < path.length; i++) {
+        let pt = path[i];
+        
+        // Determine color based on which arch this ridge belongs to
+        let archIndex = Math.floor(r / this.ridges);
+        let ridgeInArch = r % this.ridges;
+        
+        let layerColor;
+        if (ridgeInArch < this.ridges / 3) {
+          layerColor = '#00bfff'; // Blue
+        } else if (ridgeInArch < (this.ridges * 2) / 3) {
+          layerColor = '#7c3aed'; // Purple
+        } else {
+          layerColor = '#ff69b4'; // Pink
+        }
+        
+        let fade = 1.0;
+        if (pt.t > 0.78) fade = Math.max(0, 1.0 - (pt.t - 0.78) * 5.0);
+        let dotSize = 2.1 + 1.2 * Math.sin(r + i * 0.13);
+        
+        if (i % 2 === 0) {
+          let noiseX = (Math.random() - 0.5) * 5.5;
+          let noiseY = (Math.random() - 0.5) * 5.5;
+          this.ctx.save();
+          this.ctx.globalAlpha = 0.85 * fade;
+          this.ctx.fillStyle = layerColor;
+          this.ctx.beginPath();
+          this.ctx.arc(pt.x + noiseX, pt.y + noiseY, dotSize, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.restore();
+        }
+      }
+      
+      if (maxDots < path.length) {
+        dotsDrawn[r] = maxDots + dotsPerFrame;
+      }
              }
-             // Add multiple parallel ridges for the second left curve to match the first curve's thickness
-             for (let ridgeIndex = 0; ridgeIndex < 3; ridgeIndex++) {
-               let leftCurve2 = this.generateLeftCurve2(ridgeIndex);
-               this.ridgePaths.push(leftCurve2);
-             }
     }
     
-    generatePath(r, baseOffset) {
-      let path = [];
-      let points = this.pointsPerRidge;
+  generatePath(r, baseOffset) {
+    let path = [];
+    let points = this.pointsPerRidge;
+    const { ARCH_COUNT, SIZE_MULTIPLIERS, BASE_SPACING, TRIANGLE_WIDTH_MULTIPLIER, TRIANGLE_HEIGHT_MULTIPLIER } = TentedArch.CONSTANTS;
+    
+    // Determine which arch this ridge belongs to (0, 1, or 2)
+    let archIndex = Math.floor(r / this.ridges);
+    let ridgeIndex = (r % this.ridges) - this.ridges / 2;
+    
+    // Get size multiplier for this arch
+    let sizeMultiplier = SIZE_MULTIPLIERS[archIndex];
+    
+    // Calculate dimensions and spacing
+    let { triangleWidth, triangleHeight, ridgeSpacing } = this.calculateArchDimensions({ sizeMultiplier, baseSpacing: BASE_SPACING, widthMultiplier: TRIANGLE_WIDTH_MULTIPLIER, heightMultiplier: TRIANGLE_HEIGHT_MULTIPLIER });
+    
+    for (let i = 0; i < points; i++) {
+      let t = i / (points - 1);
       
-      // Determine which arch this ridge belongs to (0, 1, or 2)
-      let archIndex = Math.floor(r / this.ridges); // 0, 1, or 2 (progressively smaller arches)
-      let ridgeIndex = (r % this.ridges) - this.ridges / 2;
+      // Hard-trim 4% at both ends to clean caps
+      if (t < TentedArch.CONSTANTS.HARD_TRIM_START || t > TentedArch.CONSTANTS.HARD_TRIM_END) continue;
       
-      // Progressive size reduction: 100%, 85%, 70%
-      let sizeMultiplier;
-      if (archIndex === 0) sizeMultiplier = 1.0;      // Largest arch
-      else if (archIndex === 1) sizeMultiplier = 0.85; // Second arch
-      else sizeMultiplier = 0.70;                      // Third arch
+      // Calculate base position
+      let { x, y } = this.calculateBasePosition({ t, archIndex, triangleWidth, triangleHeight });
       
-      // Adjust ridge spacing based on sub-arch size for cleaner nesting
-      let baseSpacing = 2.8;
-      let ridgeSpacing = baseSpacing * sizeMultiplier; // Smaller arches have tighter ridge spacing
+      // Calculate tent height and apply it
+      let tentHeight = this.calculateTentHeight({ t, triangleHeight });
+      y -= tentHeight;
       
-      // Triangle dimensions using whorl scale, scaled by arch size
-      let triangleWidth = this.maxR * 1.6 * sizeMultiplier;
-      let triangleHeight = this.maxR * 0.8 * sizeMultiplier;
+      // Apply gentle convergence toward center
+      x = this.applyCenterConvergence({ x, t, tentHeight, triangleWidth });
       
-      for (let i = 0; i < points; i++) {
-        let t = i / (points - 1);
-        
-        // hard-trim 4% at both ends to clean caps
-        if (t < 0.04 || t > 0.96) continue;
-        
-        // Start with base horizontal line
-        let x = this.cx - triangleWidth * 0.5 + t * triangleWidth;
-        // Position arches progressively - centered as a group
-        // With 3 arches (0,1,2), center the group by offsetting by -1 * 35 = -35
-        let y = this.cy + (archIndex - 1) * 35 + triangleHeight * 0.3; // Stack arches 35px apart, centered as group
-        
-        // Create a curved "tent" peak that's more organic
-        // Use a combination of arch curve and center spike
-        let archCurve = Math.sin(t * Math.PI) * triangleHeight * 0.6; // Basic arch shape
-        let centerSpike = 0;
-        
-        // Add a more blunted spike in the center region
-        if (t > 0.3 && t < 0.7) {
-          let spikeT = (t - 0.3) / 0.4; // 0 to 1 in spike zone
-          // Use smooth curve but make it less sharp/more blunted
-          centerSpike = Math.sin(spikeT * Math.PI) * triangleHeight * 0.6;
-        }
-        
-        // Combine arch and spike for natural tent shape
-        let tentHeight = archCurve + centerSpike;
-        y -= tentHeight;
-        
-        // Gentle convergence toward center (not sharp pull like compass)
-        let convergenceFactor = Math.sin(t * Math.PI); // Smooth curve, strongest at center
-        let pullToCenter = convergenceFactor * centerSpike * 0.1; // Much gentler pull
-        x += (this.cx - x) * pullToCenter / triangleWidth;
-        
-        // Calculate slope at current point for perpendicular ridge layering
-        // Use smooth curved slope instead of sharp triangle slopes
-        let slopeX = Math.cos(t * Math.PI) * triangleHeight * 0.6; // Arch slope
-        
-        // Add center spike slope contribution (more blunted)
-        if (t > 0.3 && t < 0.7) {
-          let spikeT = (t - 0.3) / 0.4;
-          let spikeSlopeContribution = Math.cos(spikeT * Math.PI) * triangleHeight * 0.6;
-          slopeX += spikeSlopeContribution;
-        }
-        
-        // Perpendicular to the curved surface
-        let perpX = -slopeX / triangleWidth; // Negative for proper perpendicular direction
-        let perpY = 1;
-        
-        // Normalize perpendicular vector
-        let perpLength = Math.sqrt(perpX * perpX + perpY * perpY);
-        if (perpLength > 0) {
-          perpX /= perpLength;
-          perpY /= perpLength;
-        }
-        
-        // Apply ridge offset
-        x += ridgeIndex * ridgeSpacing * perpX;
-        y += ridgeIndex * ridgeSpacing * perpY;
-        
-        // Add subtle natural variations
-        let naturalFlow = Math.sin(t * Math.PI * 2 + r * 0.3) * 0.5 +
-                         Math.sin(t * Math.PI * 4 + r * 0.7) * 0.2;
-        
-        // TESTING: EXTREMELY dramatic hills - should be impossible to miss
-        let baseHillsY = Math.sin(t * Math.PI * 3) * 12.0;  // Flattened hills
-        let baseHillsX = 0;
-        
-        x += naturalFlow + baseHillsX;
-        y += naturalFlow * 0.3 + baseHillsY;
-        
-        // Tilt the entire pattern 10 degrees to the left (from viewer's perspective)
-        let tiltAngle = Math.PI / 18; // +10 degrees in radians
-        let centerX = this.cx;
-        let centerY = this.cy;
-        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
-        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
-        
-        path.push({ x: tiltedX, y: tiltedY, t });
-      }
+      // Apply ridge offset perpendicular to surface
+      let { offsetX, offsetY } = this.calculateRidgeOffset({ t, ridgeIndex, ridgeSpacing, triangleWidth, triangleHeight });
+      x += offsetX;
+      y += offsetY;
       
-      return path;
+      // Add natural variations and hills
+      let { naturalX, naturalY } = this.calculateNaturalVariations({ t, r });
+      x += naturalX;
+      y += naturalY;
+      
+      // Apply tilt to the entire pattern
+      let { tiltedX, tiltedY } = this.applyTilt({ x, y });
+      
+      path.push({ x: tiltedX, y: tiltedY, t });
     }
     
-    generateUnderCurve(ridgeIndex = 0) {
-      let path = [];
-      let points = this.pointsPerRidge;
-      
-      // Create a smooth curve underneath the main arch
-      let curveWidth = this.maxR * 0.6;  // Even shorter curve
-      let curveDepth = this.maxR * 0.24;  // Flattened by 40% (0.4 * 0.6)
-      let baseY = this.cy + this.maxR * 0.35; // Move down very slightly
-      
-      for (let i = 0; i < points; i++) {
-        let t = i / (points - 1);
-        
-        // hard-trim 4% at both ends to clean caps
-        if (t < 0.04 || t > 0.96) continue;
-        
-        // Create a smooth arc underneath, pulled northwest
-        let x = this.cx - curveWidth * 0.5 + t * curveWidth;
-        let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
-        
-        // Reduce diagonal pull - less northeast, more balanced
-        let diagonalPull = (t - 0.5) * this.maxR * 0.3; // Reduced pull toward the right
-        y -= diagonalPull; // Less dramatic slope
-        
-        // Pull northwest - shift slightly left
-        x -= this.maxR * 0.05;
-        
-        // Move two steps to the right (user's right, assistant's left)
-        x += this.maxR * 0.15;
-        
-        // Add parallel ridge spacing for multiple ridges
-        let ridgeSpacing = 2.5;
-        let ridgeOffset = (ridgeIndex - 1) * ridgeSpacing; // Center the middle ridge
-        x += ridgeOffset;
-        
-        // Apply clockwise tilt to the first curve
-        let tiltAngle = Math.PI / 6 + Math.PI / 36; // +35 degrees in radians (clockwise)
-        let centerX = this.cx;
-        let centerY = this.cy;
-        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
-        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
-        
-        path.push({ x: tiltedX, y: tiltedY, t });
-      }
-      
-      return path;
+    return path;
+  }
+
+  /**
+   * Calculates arch dimensions using a configuration object
+   * @param {Object} config - Configuration object
+   * @param {number} config.sizeMultiplier - Size multiplier for this arch
+   * @param {number} config.baseSpacing - Base spacing value
+   * @param {number} config.widthMultiplier - Width multiplier
+   * @param {number} config.heightMultiplier - Height multiplier
+   * @returns {Object} Object containing triangleWidth, triangleHeight, and ridgeSpacing
+   */
+  calculateArchDimensions(config) {
+    const { sizeMultiplier, baseSpacing, widthMultiplier, heightMultiplier } = config;
+    
+    let ridgeSpacing = baseSpacing * sizeMultiplier;
+    let triangleWidth = this.maxR * widthMultiplier * sizeMultiplier;
+    let triangleHeight = this.maxR * heightMultiplier * sizeMultiplier;
+    
+    return { triangleWidth, triangleHeight, ridgeSpacing };
+  }
+
+  /**
+   * Calculates base position using a configuration object
+   * @param {Object} config - Configuration object
+   * @param {number} config.t - Parameter t (0 to 1)
+   * @param {number} config.archIndex - Index of the arch (0, 1, or 2)
+   * @param {number} config.triangleWidth - Width of the triangle
+   * @param {number} config.triangleHeight - Height of the triangle
+   * @returns {Object} Object containing x and y coordinates
+   */
+  calculateBasePosition(config) {
+    const { t, archIndex, triangleWidth, triangleHeight } = config;
+    const { ARCH_SPACING, BASE_POSITION_X_OFFSET, BASE_POSITION_Y_OFFSET } = TentedArch.CONSTANTS;
+    
+    let x = this.cx - triangleWidth * BASE_POSITION_X_OFFSET + t * triangleWidth;
+    let y = this.cy + (archIndex - 1) * ARCH_SPACING + triangleHeight * BASE_POSITION_Y_OFFSET;
+    
+    return { x, y };
+  }
+
+  // Refactored to use a single config object
+  calculateTentHeight(config) {
+    const { t, triangleHeight } = config;
+    const { ARCH_CURVE_MULTIPLIER, CENTER_SPIKE_ZONE_START, CENTER_SPIKE_ZONE_END, CENTER_SPIKE_MULTIPLIER } = TentedArch.CONSTANTS;
+    
+    // Create a curved "tent" peak that's more organic
+    let archCurve = Math.sin(t * Math.PI) * triangleHeight * ARCH_CURVE_MULTIPLIER;
+    let centerSpike = 0;
+    
+    // Add a more blunted spike in the center region
+    if (t > CENTER_SPIKE_ZONE_START && t < CENTER_SPIKE_ZONE_END) {
+      let spikeT = (t - CENTER_SPIKE_ZONE_START) / (CENTER_SPIKE_ZONE_END - CENTER_SPIKE_ZONE_START);
+      centerSpike = Math.sin(spikeT * Math.PI) * triangleHeight * CENTER_SPIKE_MULTIPLIER;
     }
     
-    generateUnderCurve2(ridgeIndex = 0) {
-      let path = [];
-      let points = this.pointsPerRidge;
-      
-      // Create a second, smaller curve underneath the first one
-      let curveWidth = this.maxR * 0.5;  // Longer to match the first curve better
-      let curveDepth = this.maxR * 0.1;  // Much flatter - almost straight
-      let baseY = this.cy + this.maxR * 0.35; // Move up one position
-      
-      for (let i = 0; i < points; i++) {
-        let t = i / (points - 1);
-        
-        // hard-trim 4% at both ends to clean caps
-        if (t < 0.04 || t > 0.96) continue;
-        
-        // Create a smooth arc underneath, similar to first curve
-        let x = this.cx - curveWidth * 0.5 + t * curveWidth;
-        let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
-        
-        // Add similar diagonal pull but slightly less
-        let diagonalPull = (t - 0.5) * this.maxR * 0.2; // Less diagonal pull
-        y -= diagonalPull;
-        
-        // Pull northwest - shift slightly left
-        x -= this.maxR * 0.05;
-        
-        // Move to align with the first curve
-        x += this.maxR * 0.15;
-        
-        // Add parallel ridge spacing for multiple ridges
-        let ridgeSpacing = 2.5;
-        let ridgeOffset = (ridgeIndex - 1) * ridgeSpacing; // Center the middle ridge
-        x += ridgeOffset;
-        
-        // Apply slightly less clockwise tilt than the first curve
-        let tiltAngle = Math.PI / 6 - Math.PI / 72; // +27.5 degrees in radians (clockwise)
-        let centerX = this.cx;
-        let centerY = this.cy;
-        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
-        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
-        
-        path.push({ x: tiltedX, y: tiltedY, t });
-      }
-      
-      return path;
+    // Combine arch and spike for natural tent shape
+    return archCurve + centerSpike;
+  }
+
+  // Refactored to use a single config object
+  applyCenterConvergence(config) {
+    const { x, t, tentHeight, triangleWidth } = config;
+    const { CONVERGENCE_FACTOR } = TentedArch.CONSTANTS;
+    
+    // Gentle convergence toward center (not sharp pull like compass)
+    let convergenceFactor = Math.sin(t * Math.PI); // Smooth curve, strongest at center
+    let pullToCenter = convergenceFactor * tentHeight * CONVERGENCE_FACTOR;
+    return x + (this.cx - x) * pullToCenter / triangleWidth;
+  }
+
+  // Refactored to use a single config object
+  calculateRidgeOffset(config) {
+    const { t, ridgeIndex, ridgeSpacing, triangleWidth, triangleHeight } = config;
+    const { 
+      ARCH_CURVE_MULTIPLIER, 
+      CENTER_SPIKE_ZONE_START, 
+      CENTER_SPIKE_ZONE_END, 
+      CENTER_SPIKE_MULTIPLIER,
+      MIN_PERP_LENGTH_SQUARED
+    } = TentedArch.CONSTANTS;
+    
+    // Calculate slope at current point for perpendicular ridge layering
+    let slopeX = Math.cos(t * Math.PI) * triangleHeight * ARCH_CURVE_MULTIPLIER;
+    
+    // Add center spike slope contribution
+    if (t > CENTER_SPIKE_ZONE_START && t < CENTER_SPIKE_ZONE_END) {
+      let spikeT = (t - CENTER_SPIKE_ZONE_START) / (CENTER_SPIKE_ZONE_END - CENTER_SPIKE_ZONE_START);
+      let spikeSlopeContribution = Math.cos(spikeT * Math.PI) * triangleHeight * CENTER_SPIKE_MULTIPLIER;
+      slopeX += spikeSlopeContribution;
     }
     
-    generateUnderCurve3() {
-      let path = [];
-      let points = this.pointsPerRidge;
-      
-      // Create a third, smallest curve underneath the second one
-      let curveWidth = this.maxR * 0.35;  // Even smaller than the second curve
-      let curveDepth = this.maxR * 0.05;  // Even flatter - very straight
-      let baseY = this.cy + this.maxR * 0.05; // Move up much higher
-      
-      for (let i = 0; i < points; i++) {
-        let t = i / (points - 1);
-        
-        // hard-trim 4% at both ends to clean caps
-        if (t < 0.04 || t > 0.96) continue;
-        
-        // Create a smooth arc underneath, similar to other curves
-        let x = this.cx - curveWidth * 0.5 + t * curveWidth;
-        let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
-        
-        // Add minimal diagonal pull
-        let diagonalPull = (t - 0.5) * this.maxR * 0.15; // Very minimal diagonal pull
-        y -= diagonalPull;
-        
-        // Pull northwest - shift slightly left
-        x -= this.maxR * 0.05;
-        
-        // Move two stages behind (to the left)
-        x -= this.maxR * 0.1;
-        
-        // Apply clockwise tilt
-        let tiltAngle = Math.PI / 9; // +20 degrees in radians (clockwise)
-        let centerX = this.cx;
-        let centerY = this.cy;
-        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
-        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
-        
-        path.push({ x: tiltedX, y: tiltedY, t });
-      }
-      
-      return path;
+    // Optimized perpendicular vector calculation
+    // Since we know perpY = 1, we can simplify the normalization
+    let perpX = -slopeX / triangleWidth;
+    let perpY = 1;
+    
+    // Fast normalization using reciprocal square root approximation
+    // This avoids the expensive Math.sqrt() operation
+    let perpLengthSquared = perpX * perpX + 1; // perpY * perpY = 1
+    if (perpLengthSquared > MIN_PERP_LENGTH_SQUARED) { // Avoid division by very small numbers
+      let perpLength = 1 / Math.sqrt(perpLengthSquared);
+      perpX *= perpLength;
+      perpY *= perpLength;
     }
     
-    generateUnderCurve4() {
-      let path = [];
-      let points = this.pointsPerRidge;
+    // Apply ridge offset
+    let offsetX = ridgeIndex * ridgeSpacing * perpX;
+    let offsetY = ridgeIndex * ridgeSpacing * perpY;
+    
+    return { offsetX, offsetY };
+  }
+
+  // Refactored to use a single config object
+  calculateNaturalVariations(config) {
+    const { t, r } = config;
+    const { 
+      NATURAL_FLOW_AMPLITUDE, 
+      NATURAL_FLOW_FREQUENCY, 
+      HILLS_AMPLITUDE, 
+      HILLS_FREQUENCY, 
+      NATURAL_FLOW_SECONDARY_AMPLITUDE, 
+      NATURAL_FLOW_SECONDARY_FREQUENCY, 
+      NATURAL_FLOW_Y_MULTIPLIER,
+      PRIMARY_FLOW_FREQUENCY_MULTIPLIER,
+      SECONDARY_FLOW_FREQUENCY_MULTIPLIER,
+      HILLS_FREQUENCY_MULTIPLIER
+    } = TentedArch.CONSTANTS;
+    
+    // Pre-calculate PI * t to avoid repeated calculations
+    let piT = Math.PI * t;
+    
+    // Calculate primary natural flow (horizontal)
+    let primaryFlow = Math.sin(piT * PRIMARY_FLOW_FREQUENCY_MULTIPLIER + r * NATURAL_FLOW_FREQUENCY) * NATURAL_FLOW_AMPLITUDE;
+    
+    // Calculate secondary natural flow (horizontal)
+    let secondaryFlow = Math.sin(piT * SECONDARY_FLOW_FREQUENCY_MULTIPLIER + r * NATURAL_FLOW_SECONDARY_FREQUENCY) * 
+                       (NATURAL_FLOW_AMPLITUDE * NATURAL_FLOW_SECONDARY_AMPLITUDE);
+    
+    // Combine horizontal flows
+    let naturalX = primaryFlow + secondaryFlow;
+    
+    // Calculate vertical hills (more pronounced)
+    let hillsY = Math.sin(piT * HILLS_FREQUENCY_MULTIPLIER) * HILLS_AMPLITUDE;
+    
+    // Calculate vertical flow (scaled down from horizontal)
+    let naturalY = naturalX * NATURAL_FLOW_Y_MULTIPLIER + hillsY;
+    
+    return { naturalX, naturalY };
+  }
+
+  // Refactored to use a single config object
+  applyTilt(config) {
+    const { x, y } = config;
+    const { TILT_ANGLE } = TentedArch.CONSTANTS;
+    
+    let centerX = this.cx;
+    let centerY = this.cy;
+    let tiltedX = centerX + (x - centerX) * Math.cos(TILT_ANGLE) - (y - centerY) * Math.sin(TILT_ANGLE);
+    let tiltedY = centerY + (x - centerX) * Math.sin(TILT_ANGLE) + (y - centerY) * Math.cos(TILT_ANGLE);
+    
+    return { tiltedX, tiltedY };
+  }
+    
+  generateUnderCurve(curveIndex = 0, ridgeIndex = 0) {
+    let path = [];
+    let points = this.pointsPerRidge;
+    const { RIDGE_SPACING, UNDER_CURVE_NORTHWEST_PULL, HARD_TRIM_START, HARD_TRIM_END } = TentedArch.CONSTANTS;
+    
+    // Curve configuration based on index
+    const curveConfigs = [
+      { width: 0.6, depth: 0.24, baseY: 0.35, diagonalPull: 0.3, xOffset: 0.15, tiltAngle: Math.PI / 6 + Math.PI / 36 },
+      { width: 0.5, depth: 0.1, baseY: 0.35, diagonalPull: 0.2, xOffset: 0.15, tiltAngle: Math.PI / 6 - Math.PI / 72 },
+      { width: 0.35, depth: 0.05, baseY: 0.05, diagonalPull: 0.15, xOffset: -0.1, tiltAngle: Math.PI / 9 },
+      { width: 0.25, depth: 0.05, baseY: 0.35, diagonalPull: 0.1, xOffset: 0.15, tiltAngle: Math.PI / 6 - Math.PI / 72 }
+    ];
+    
+    const config = curveConfigs[curveIndex];
+    let curveWidth = this.maxR * config.width;
+    let curveDepth = this.maxR * config.depth;
+    let baseY = this.cy + this.maxR * config.baseY;
+    
+    for (let i = 0; i < points; i++) {
+      let t = i / (points - 1);
       
-      // Create a fourth curve underneath the second one
-      let curveWidth = this.maxR * 0.25;  // Smaller than the second curve
-      let curveDepth = this.maxR * 0.05;  // Very flat - almost straight
-      let baseY = this.cy + this.maxR * 0.35; // Move up much higher
+      // Hard-trim 4% at both ends to clean caps
+      if (t < HARD_TRIM_START || t > HARD_TRIM_END) continue;
       
-      for (let i = 0; i < points; i++) {
-        let t = i / (points - 1);
-        
-        // hard-trim 4% at both ends to clean caps
-        if (t < 0.04 || t > 0.96) continue;
-        
-        // Create a smooth arc underneath, similar to other curves
-        let x = this.cx - curveWidth * 0.5 + t * curveWidth;
-        let y = baseY - Math.sin(t * Math.PI) * curveDepth; // Downward arc (flipped)
-        
-        // Add minimal diagonal pull
-        let diagonalPull = (t - 0.5) * this.maxR * 0.1; // Very minimal diagonal pull
-        y -= diagonalPull;
-        
-        // Pull northwest - shift slightly left
-        x -= this.maxR * 0.05;
-        
-        // Move to align with the second curve
-        x += this.maxR * 0.15;
-        
-        // Apply the same tilt as the second curve
-        let tiltAngle = Math.PI / 6 - Math.PI / 72; // +27.5 degrees in radians (clockwise)
-        let centerX = this.cx;
-        let centerY = this.cy;
-        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
-        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
-        
-        path.push({ x: tiltedX, y: tiltedY, t });
-      }
+      // Create a smooth arc underneath
+      let x = this.cx - curveWidth * 0.5 + t * curveWidth;
+      let y = baseY - Math.sin(t * Math.PI) * curveDepth;
       
-      return path;
+      // Add diagonal pull
+      let diagonalPull = (t - 0.5) * this.maxR * config.diagonalPull;
+      y -= diagonalPull;
+      
+      // Pull northwest - shift slightly left
+      x -= this.maxR * UNDER_CURVE_NORTHWEST_PULL;
+      
+      // Apply x offset
+      x += this.maxR * config.xOffset;
+      
+      // Add parallel ridge spacing for multiple ridges
+      let ridgeOffset = (ridgeIndex - 1) * RIDGE_SPACING;
+      x += ridgeOffset;
+      
+      // Apply tilt
+      let centerX = this.cx;
+      let centerY = this.cy;
+      let tiltedX = centerX + (x - centerX) * Math.cos(config.tiltAngle) - (y - centerY) * Math.sin(config.tiltAngle);
+      let tiltedY = centerY + (x - centerX) * Math.sin(config.tiltAngle) + (y - centerY) * Math.cos(config.tiltAngle);
+      
+      path.push({ x: tiltedX, y: tiltedY, t });
     }
     
-    generateLeftCurve1(ridgeIndex = 0) {
-      let path = [];
-      let points = this.pointsPerRidge;
+    return path;
+  }
+    
+  generateLeftCurve(curveIndex = 0, ridgeIndex = 0) {
+    let path = [];
+    let points = this.pointsPerRidge;
+    const { RIDGE_SPACING, LEFT_CURVE_TILT_ANGLE, LEFT_CURVE_DEPTH_MULTIPLIER, HARD_TRIM_START, HARD_TRIM_END } = TentedArch.CONSTANTS;
+    
+    // Left curve configuration based on index
+    const leftCurveConfigs = [
+      { width: 1.6, depth: 0.25, baseX: -0.7, baseY: 0.25, diagonalPull: 0.2, trailDown: 0.3 },
+      { width: 1.4, depth: 0.2, baseX: -0.8, baseY: 0.3, diagonalPull: 0.15, trailDown: 0.25 }
+    ];
+    
+    const config = leftCurveConfigs[curveIndex];
+    let curveWidth = this.maxR * config.width;
+    let curveDepth = this.maxR * config.depth;
+    let baseX = this.cx + this.maxR * config.baseX;
+    let baseY = this.cy + this.maxR * config.baseY;
+    
+    for (let i = 0; i < points; i++) {
+      let t = i / (points - 1);
       
-      // Create a left-side curve to complement the under curves
-      let curveWidth = this.maxR * 1.6;  // Elongated
-      let curveDepth = this.maxR * 0.25;  // Stronger curvature
-      let baseX = this.cx - this.maxR * 0.7; // Move slightly left
-      let baseY = this.cy + this.maxR * 0.25; // Move slightly up
+      // Hard-trim 4% at both ends to clean caps
+      if (t < HARD_TRIM_START || t > HARD_TRIM_END) continue;
       
-      for (let i = 0; i < points; i++) {
-        let t = i / (points - 1);
-        
-        // hard-trim 4% at both ends to clean caps
-        if (t < 0.04 || t > 0.96) continue;
-        
-        // Create a vertical curve on the left side
-        let x = baseX + Math.sin(t * Math.PI) * curveDepth; // Horizontal curve (convex away from arch)
-        let y = baseY - curveWidth * 0.5 + t * curveWidth + Math.sin(t * Math.PI) * curveDepth * 0.8 - (t * 0.3) * this.maxR; // Curve over top, trail down
-        
-        // Add parallel ridge spacing for thickness
-        let ridgeSpacing = 2.5;
-        x += (ridgeIndex - 1) * ridgeSpacing;
-        
-        // Add slight diagonal pull towards the arch
-        let diagonalPull = (t - 0.5) * this.maxR * 0.2;
-        x += diagonalPull;
-        
-        // Rotate to 2 o'clock position from top right
-        let tiltAngle = Math.PI / 3; // +60 degrees in radians (2 o'clock)
-        let centerX = this.cx;
-        let centerY = this.cy;
-        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
-        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
-        
-        path.push({ x: tiltedX, y: tiltedY, t });
-      }
+      // Create a vertical curve on the left side
+      let x = baseX + Math.sin(t * Math.PI) * curveDepth;
+      let y = baseY - curveWidth * 0.5 + t * curveWidth + Math.sin(t * Math.PI) * curveDepth * LEFT_CURVE_DEPTH_MULTIPLIER - (t * config.trailDown) * this.maxR;
       
-      return path;
+      // Add parallel ridge spacing for thickness
+      let ridgeOffset = (ridgeIndex - 1) * RIDGE_SPACING;
+      x += ridgeOffset;
+      
+      // Add slight diagonal pull towards the arch
+      let diagonalPull = (t - 0.5) * this.maxR * config.diagonalPull;
+      x += diagonalPull;
+      
+      // Rotate to 2 o'clock position from top right
+      let centerX = this.cx;
+      let centerY = this.cy;
+      let tiltedX = centerX + (x - centerX) * Math.cos(LEFT_CURVE_TILT_ANGLE) - (y - centerY) * Math.sin(LEFT_CURVE_TILT_ANGLE);
+      let tiltedY = centerY + (x - centerX) * Math.sin(LEFT_CURVE_TILT_ANGLE) + (y - centerY) * Math.cos(LEFT_CURVE_TILT_ANGLE);
+      
+      path.push({ x: tiltedX, y: tiltedY, t });
     }
     
-    generateLeftCurve2(ridgeIndex = 0) {
-      let path = [];
-      let points = this.pointsPerRidge;
-      
-      // Create a second, smaller left-side curve
-      let curveWidth = this.maxR * 1.4;  // Elongated
-      let curveDepth = this.maxR * 0.2;  // Stronger curvature
-      let baseX = this.cx - this.maxR * 0.8; // Move slightly left
-      let baseY = this.cy + this.maxR * 0.3; // Move slightly up
-      
-      for (let i = 0; i < points; i++) {
-        let t = i / (points - 1);
-        
-        // hard-trim 4% at both ends to clean caps
-        if (t < 0.04 || t > 0.96) continue;
-        
-        // Create a vertical curve on the left side
-        let x = baseX + Math.sin(t * Math.PI) * curveDepth; // Horizontal curve (convex away from arch)
-        let y = baseY - curveWidth * 0.5 + t * curveWidth + Math.sin(t * Math.PI) * curveDepth * 0.8 - (t * 0.25) * this.maxR; // Curve over top, trail down
-        
-        // Add parallel ridge spacing for thickness
-        let ridgeSpacing = 2.5;
-        x += (ridgeIndex - 1) * ridgeSpacing;
-        
-        // Add slight diagonal pull towards the arch
-        let diagonalPull = (t - 0.5) * this.maxR * 0.15;
-        x += diagonalPull;
-        
-        // Rotate to 2 o'clock position from top right
-        let tiltAngle = Math.PI / 3; // +60 degrees in radians (2 o'clock)
-        let centerX = this.cx;
-        let centerY = this.cy;
-        let tiltedX = centerX + (x - centerX) * Math.cos(tiltAngle) - (y - centerY) * Math.sin(tiltAngle);
-        let tiltedY = centerY + (x - centerX) * Math.sin(tiltAngle) + (y - centerY) * Math.cos(tiltAngle);
-        
-        path.push({ x: tiltedX, y: tiltedY, t });
-      }
-      
-      return path;
-    }
+    return path;
+  }
   }
 
   window.TentedArch = TentedArch;
