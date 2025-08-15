@@ -1,7 +1,6 @@
 class SpatterExplosion {
     constructor(formElement) {
         this.formElement = formElement;
-        this.explosionIntensity = 1.0;
         this.bloodDrops = [];
         this.isExploding = false;
         this.canvas = this.createExplosionCanvas();
@@ -9,9 +8,8 @@ class SpatterExplosion {
         this.explosionStartTime = 0;
         
         // Explosion settings
-        this.dropCount = 20;
-        this.explosionDuration = 2000; // 2 seconds
-        this.formShakeIntensity = 10;
+        this.dropCount = 8; // Minimal drops for subtle effect
+        this.explosionDuration = 1000; // 1 second
     }
     
     createExplosionCanvas() {
@@ -28,15 +26,19 @@ class SpatterExplosion {
         return canvas;
     }
     
-    trigger(formData) {
+    trigger(formData, cursorX, cursorY) {
         if (this.isExploding) return;
         
         this.isExploding = true;
         this.explosionStartTime = Date.now();
         
+        // Generate blood drops immediately
+        this.generateBloodDrops(cursorX, cursorY, formData);
+        
         // Create explosion effect
         this.createExplosionEffect();
-        this.generateBloodDrops(formData);
+        
+        // Start animation immediately
         this.animateExplosion();
         
         // Cleanup after explosion
@@ -53,95 +55,43 @@ class SpatterExplosion {
         
         // Add explosion sound effect (optional)
         this.playExplosionSound();
-        
-        // Add visual explosion indicator
-        this.addExplosionIndicator();
     }
     
-    addExplosionIndicator() {
-        const indicator = document.createElement('div');
-        indicator.className = 'explosion-indicator';
-        indicator.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 100px;
-            height: 100px;
-            background: radial-gradient(circle, rgba(255, 107, 107, 0.8) 0%, transparent 70%);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 1000;
-            animation: explosionPulse 0.5s ease-out;
-        `;
-        
-        this.formElement.style.position = 'relative';
-        this.formElement.appendChild(indicator);
-        
-        // Remove indicator after animation
-        setTimeout(() => {
-            if (indicator.parentNode) {
-                indicator.remove();
-            }
-        }, 500);
-    }
-    
-    generateBloodDrops(formData) {
-        const formRect = this.formElement.getBoundingClientRect();
-        const centerX = formRect.left + formRect.width / 2;
-        const centerY = formRect.top + formRect.height / 2;
+    generateBloodDrops(cursorX, cursorY, formData) {
+        // Use cursor position as origin
+        const originX = cursorX || window.innerWidth / 2;
+        const originY = cursorY || window.innerHeight / 2;
         
         // Calculate drop count based on form data
         const messageLength = formData.message ? formData.message.length : 10;
-        const emailLength = formData.email ? formData.email.length : 5;
-        const nameLength = formData.name ? formData.name.length : 5;
-        
-        // More form content = more dramatic explosion
         const dropCount = Math.min(
-            Math.floor((messageLength + emailLength + nameLength) / 3) + 10,
+            Math.floor(messageLength / 8) + 3, // Reduced base count
             this.dropCount
         );
         
         for (let i = 0; i < dropCount; i++) {
             const drop = new BloodDrop(
-                centerX,
-                centerY,
-                this.calculateDropHeight(formData, i),
-                this.calculateDropAngle(i, dropCount),
+                originX,
+                originY,
                 this.calculateDropVelocity(formData, i)
             );
             this.bloodDrops.push(drop);
         }
     }
     
-    calculateDropHeight(formData, index) {
-        // Message length affects drop height
-        const baseHeight = formData.message ? formData.message.length * 2 : 50;
-        const variation = (Math.random() - 0.5) * 100;
-        return Math.max(50, Math.min(300, baseHeight + variation));
-    }
-    
-    calculateDropAngle(index, total) {
-        // Spread drops in a circle with some randomness
-        const baseAngle = (360 / total) * index;
-        const randomVariation = (Math.random() - 0.5) * 30;
-        return baseAngle + randomVariation;
-    }
-    
     calculateDropVelocity(formData, index) {
         // Email length affects velocity
-        const baseVelocity = formData.email ? formData.email.length * 0.3 : 2;
-        const randomBoost = Math.random() * 3;
-        return Math.max(1, Math.min(8, baseVelocity + randomBoost));
+        const baseVelocity = formData.email ? formData.email.length * 0.2 : 3;
+        const randomBoost = Math.random() * 2;
+        return Math.max(2, Math.min(6, baseVelocity + randomBoost));
     }
     
     animateExplosion() {
         const animate = () => {
-            if (!this.isExploding) return;
-            
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             
             let activeDrops = 0;
+            let allDropsFaded = true;
             
             this.bloodDrops.forEach(drop => {
                 if (!drop.hasLanded) {
@@ -150,14 +100,26 @@ class SpatterExplosion {
                     activeDrops++;
                 } else {
                     drop.draw(this.ctx);
+                    if (!drop.isCompletelyFaded()) {
+                        allDropsFaded = false;
+                        // Add debugging for fade status
+                        console.log(`Drop not completely faded: opacity=${drop.opacity.toFixed(3)}, isFading=${drop.isFading}`);
+                    }
                 }
             });
             
             // Draw explosion center indicator
-            this.drawExplosionCenter();
+            if (this.isExploding) {
+                this.drawExplosionCenter();
+            }
             
-            if (activeDrops > 0 || this.isExploding) {
+            // Continue animation if there are active drops or if drops are still fading
+            if (activeDrops > 0 || !allDropsFaded) {
                 requestAnimationFrame(animate);
+            } else {
+                // All drops have faded out, clean up
+                console.log('🎯 All drops faded - cleaning up animation');
+                this.finalCleanup();
             }
         };
         
@@ -165,21 +127,28 @@ class SpatterExplosion {
     }
     
     drawExplosionCenter() {
-        const formRect = this.formElement.getBoundingClientRect();
-        const centerX = formRect.left + formRect.width / 2;
-        const centerY = formRect.top + formRect.height / 2;
+        // Find the center of all blood drops
+        if (this.bloodDrops.length === 0) return;
+        
+        let centerX = 0, centerY = 0;
+        this.bloodDrops.forEach(drop => {
+            centerX += drop.x;
+            centerY += drop.y;
+        });
+        centerX /= this.bloodDrops.length;
+        centerY /= this.bloodDrops.length;
         
         // Draw explosion center glow
         const elapsed = Date.now() - this.explosionStartTime;
         const intensity = Math.max(0, 1 - (elapsed / this.explosionDuration));
         
         this.ctx.save();
-        this.ctx.globalAlpha = intensity * 0.6;
+        this.ctx.globalAlpha = intensity * 0.4;
         
         // Create radial gradient for explosion center
         const gradient = this.ctx.createRadialGradient(
             centerX, centerY, 0,
-            centerX, centerY, 100
+            centerX, centerY, 80
         );
         gradient.addColorStop(0, 'rgba(255, 107, 107, 1)');
         gradient.addColorStop(0.5, 'rgba(255, 107, 107, 0.5)');
@@ -187,7 +156,7 @@ class SpatterExplosion {
         
         this.ctx.fillStyle = gradient;
         this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, 100, 0, Math.PI * 2);
+        this.ctx.arc(centerX, centerY, 80, 0, Math.PI * 2);
         this.ctx.fill();
         
         this.ctx.restore();
@@ -197,6 +166,11 @@ class SpatterExplosion {
         this.isExploding = false;
         this.formElement.style.animation = '';
         
+        // Don't remove canvas yet - let blood drops fade out naturally
+        // The canvas will be removed when all drops are completely faded
+    }
+    
+    finalCleanup() {
         // Remove explosion canvas
         if (this.canvas.parentNode) {
             this.canvas.remove();
@@ -205,34 +179,12 @@ class SpatterExplosion {
         // Clear blood drops array
         this.bloodDrops = [];
         
-        // Trigger forensic analysis
-        this.triggerForensicAnalysis();
-    }
-    
-    triggerForensicAnalysis() {
-        // This will be connected to the ForensicAnalysis class
-        if (window.forensicAnalysis) {
-            window.forensicAnalysis.processEvidence(this.getExplosionData());
-        }
-    }
-    
-    getExplosionData() {
-        return {
-            dropCount: this.bloodDrops.length,
-            explosionDuration: this.explosionDuration,
-            intensity: this.explosionIntensity,
-            timestamp: new Date().toISOString()
-        };
+        console.log('🧹 Blood spatter cleanup complete');
     }
     
     playExplosionSound() {
         // Optional: Add explosion sound effect
-        // For now, we'll just log that sound would play
         console.log('💥 EXPLOSION SOUND EFFECT!');
-        
-        // Future enhancement: Add actual audio
-        // this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        // ... sound generation code
     }
     
     // Handle window resize

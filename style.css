@@ -365,39 +365,16 @@ footer {
 /* Blood Spatter Explosion Animations */
 @keyframes explosion {
     0% { 
-        transform: scale(1) rotate(0deg); 
+        transform: scale(1); 
         box-shadow: 0 0 0 rgba(255, 107, 107, 0);
     }
-    25% { 
-        transform: scale(1.1) rotate(-2deg); 
-        box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
-    }
     50% { 
-        transform: scale(0.9) rotate(2deg); 
-        box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
-    }
-    75% { 
-        transform: scale(1.05) rotate(-1deg); 
-        box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
+        transform: scale(1.05); 
+        box-shadow: 0 0 15px rgba(255, 107, 107, 0.6);
     }
     100% { 
-        transform: scale(1) rotate(0deg); 
+        transform: scale(1); 
         box-shadow: 0 0 0 rgba(255, 107, 107, 0);
-    }
-}
-
-@keyframes explosionPulse {
-    0% { 
-        transform: translate(-50%, -50%) scale(0);
-        opacity: 1;
-    }
-    50% { 
-        transform: translate(-50%, -50%) scale(1.5);
-        opacity: 0.8;
-    }
-    100% { 
-        transform: translate(-50%, -50%) scale(2);
-        opacity: 0;
     }
 }
 

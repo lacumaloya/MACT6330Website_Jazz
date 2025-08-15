@@ -3,8 +3,11 @@ class ExplosionTest {
     constructor() {
         this.formElement = document.getElementById('contact-form');
         this.spatterExplosion = null;
+        this.cursorX = 0;
+        this.cursorY = 0;
         this.setupForm();
         this.setupTestButton();
+        this.setupCursorTracking();
     }
     
     setupForm() {
@@ -30,6 +33,20 @@ class ExplosionTest {
         this.formElement.addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleFormSubmission();
+        });
+    }
+    
+    setupCursorTracking() {
+        // Track cursor position for explosion origin
+        document.addEventListener('mousemove', (e) => {
+            this.cursorX = e.clientX;
+            this.cursorY = e.clientY;
+        });
+        
+        // Track cursor position on click
+        document.addEventListener('click', (e) => {
+            this.cursorX = e.clientX;
+            this.cursorY = e.clientY;
         });
     }
     
@@ -60,9 +77,9 @@ class ExplosionTest {
     handleFormSubmission() {
         const formData = this.collectFormData();
         
-        // Trigger the epic explosion!
+        // Trigger the epic explosion from cursor position!
         if (this.spatterExplosion) {
-            this.spatterExplosion.trigger(formData);
+            this.spatterExplosion.trigger(formData, this.cursorX, this.cursorY);
         }
         
         // Show success message
@@ -78,10 +95,10 @@ class ExplosionTest {
         };
         
         if (this.spatterExplosion) {
-            this.spatterExplosion.trigger(testData);
+            this.spatterExplosion.trigger(testData, this.cursorX, this.cursorY);
         }
         
-        console.log('🧪 Test explosion triggered!');
+        console.log('🧪 Test explosion triggered from cursor position!');
     }
     
     collectFormData() {
