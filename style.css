@@ -361,3 +361,141 @@ footer {
         /* No max-width/max-height here either */
     }
 } 
+
+/* Blood Spatter Explosion Animations */
+@keyframes explosion {
+    0% { 
+        transform: scale(1) rotate(0deg); 
+        box-shadow: 0 0 0 rgba(255, 107, 107, 0);
+    }
+    25% { 
+        transform: scale(1.1) rotate(-2deg); 
+        box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
+    }
+    50% { 
+        transform: scale(0.9) rotate(2deg); 
+        box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
+    }
+    75% { 
+        transform: scale(1.05) rotate(-1deg); 
+        box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
+    }
+    100% { 
+        transform: scale(1) rotate(0deg); 
+        box-shadow: 0 0 0 rgba(255, 107, 107, 0);
+    }
+}
+
+@keyframes explosionPulse {
+    0% { 
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 1;
+    }
+    50% { 
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0.8;
+    }
+    100% { 
+        transform: translate(-50%, -50%) scale(2);
+        opacity: 0;
+    }
+}
+
+/* Forensic Form Styling */
+.forensic-form {
+    background: rgba(26, 26, 46, 0.9);
+    border: 2px solid #ff6b6b;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+    transition: all 0.3s ease;
+}
+
+.forensic-form:hover {
+    border-color: #ff8e8e;
+    box-shadow: 0 12px 35px rgba(255, 107, 107, 0.4);
+}
+
+.forensic-submit {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    width: 100%;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.forensic-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 107, 107, 0.5);
+    background: linear-gradient(45deg, #ff8e8e, #ff6b6b);
+}
+
+.forensic-submit:active {
+    transform: translateY(0);
+}
+
+/* Forensic Results Display */
+.forensic-results {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(26, 26, 46, 0.95);
+    border: 3px solid #ff6b6b;
+    border-radius: 15px;
+    padding: 30px;
+    color: white;
+    z-index: 1002;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
+    animation: forensicResultsAppear 0.5s ease-out;
+}
+
+@keyframes forensicResultsAppear {
+    0% { 
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 0;
+    }
+    100% { 
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+}
+
+.forensic-report h3 {
+    color: #ff6b6b;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.case-details {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.case-details p {
+    margin: 8px 0;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+.forensic-message {
+    background: rgba(255, 107, 107, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #ff6b6b;
+}
+
+.forensic-message p {
+    margin: 5px 0;
+    color: #a8e6cf;
+}
